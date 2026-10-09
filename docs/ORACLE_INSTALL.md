@@ -128,12 +128,13 @@ git log --oneline -3
 ## Step 5 — Create the storage directory (locked down)
 
 **What this does:** creates `/var/lib/gameforge` — where project git repos,
-uploads, artifacts and backups live — owned by you and readable by nobody else
-(mode `0700`). The API, worker and runner containers mount this directory.
+uploads, artifacts and backups live. The API container runs as uid 65532
+(see `Dockerfile.api`), so the directory must be owned by that uid —
+`0700` owned by your user would lock the containers out (EACCES on write).
 
 ```bash
 sudo mkdir -p /var/lib/gameforge
-sudo chown "$USER:$USER" /var/lib/gameforge
+sudo chown 65532:65532 /var/lib/gameforge
 sudo chmod 0700 /var/lib/gameforge
 ls -ld /var/lib/gameforge
 ```
