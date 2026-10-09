@@ -81,6 +81,14 @@ const get = <T>(path: string) => request<T>(path);
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
 
+/**
+ * List endpoints return a paginated envelope `{ items, page, pageSize, total }`,
+ * but these helpers expose the plain array the UI components work with.
+ * Tolerates a raw array too, so a future API change can't blank the screen.
+ */
+const unwrapItems = <T>(page: { items?: T[] } | T[] | null | undefined): T[] =>
+  Array.isArray(page) ? page : (page?.items ?? []);
+
 /* ---------- Projects ---------- */
 
 export interface CreateProjectInput {
@@ -108,7 +116,9 @@ export interface PostMessageInput {
 }
 
 export const listMessages = (projectId: string): Promise<ChatMessage[]> =>
-  get<ChatMessage[]>(`/projects/${encodeURIComponent(projectId)}/messages`);
+  get<{ items: ChatMessage[] } | ChatMessage[]>(
+    `/projects/${encodeURIComponent(projectId)}/messages`,
+  ).then(unwrapItems);
 
 export const postMessage = (
   projectId: string,
@@ -122,7 +132,9 @@ export const postMessage = (
 /* ---------- Runs ---------- */
 
 export const listRuns = (projectId: string): Promise<AgentRun[]> =>
-  get<AgentRun[]>(`/projects/${encodeURIComponent(projectId)}/runs`);
+  get<{ items: AgentRun[] } | AgentRun[]>(
+    `/projects/${encodeURIComponent(projectId)}/runs`,
+  ).then(unwrapItems);
 
 export const createRun = (
   projectId: string,
@@ -142,7 +154,9 @@ export const cancelRun = (runId: string): Promise<AgentRun> =>
 /* ---------- Builds ---------- */
 
 export const listBuilds = (projectId: string): Promise<BuildJob[]> =>
-  get<BuildJob[]>(`/projects/${encodeURIComponent(projectId)}/builds`);
+  get<{ items: BuildJob[] } | BuildJob[]>(
+    `/projects/${encodeURIComponent(projectId)}/builds`,
+  ).then(unwrapItems);
 
 export const getBuild = (buildId: string): Promise<BuildJob> =>
   get<BuildJob>(`/builds/${encodeURIComponent(buildId)}`);

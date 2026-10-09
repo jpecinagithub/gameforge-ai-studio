@@ -5,7 +5,9 @@ import {
   createProject,
   eventsUrl,
   listBuilds,
+  listMessages,
   listProjects,
+  listRuns,
 } from '../api/client';
 
 function mockFetchOnce(response: {
@@ -90,5 +92,37 @@ describe('api client', () => {
   it('eventsUrl appends lastEventId for replay', () => {
     expect(eventsUrl('run_1')).toContain('/api/v1/runs/run_1/events');
     expect(eventsUrl('run_1', '42')).toContain('lastEventId=42');
+  });
+
+  it('list helpers unwrap the paginated { items } envelope into arrays', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [{ id: 'm1' }], page: 1, pageSize: 50, total: 1 }),
+    });
+    const msgs = await listMessages('p1');
+    expect(Array.isArray(msgs)).toBe(true);
+    expect(msgs).toHaveLength(1);
+  });
+
+  it('listRuns unwraps the envelope so .find works on the result', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [], page: 1, pageSize: 50, total: 0 }),
+    });
+    const runs = await listRuns('p1');
+    expect(Array.isArray(runs)).toBe(true);
+    expect(() => runs.find((r) => r.status === 'running')).not.toThrow();
+  });
+
+  it('listBuilds tolerates an empty envelope', async () => {
+    mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ items: [], page: 1, pageSize: 50, total: 0 }),
+    });
+    const builds = await listBuilds('p1');
+    expect(builds).toEqual([]);
   });
 });
