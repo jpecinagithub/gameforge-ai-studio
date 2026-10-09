@@ -5,7 +5,7 @@ node_modules/
 dist/
 build/
 
-# Secrets — NEVER commit. The server .env holds GROQ_API_KEY, POSTGRES_PASSWORD.
+# Secrets — NEVER commit. The server .env holds CLOUDFLARE_API_TOKEN, POSTGRES_PASSWORD.
 .env
 infra/deploy/.env
 *.env.local
