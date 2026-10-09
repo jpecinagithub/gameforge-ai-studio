@@ -17,13 +17,15 @@ COPY packages/game-templates/package.json ./packages/game-templates/
 COPY plugins/procedural-geometry/package.json ./plugins/procedural-geometry/
 COPY plugins/asset-thumbnail/package.json ./plugins/asset-thumbnail/
 RUN npm ci --no-audit --no-fund
-# Sources for this service's dependency closure (api: shared + plugin-sdk).
+# Sources for this service's dependency closure (api: shared + model-providers + plugin-sdk).
 COPY packages/shared/ ./packages/shared/
+COPY packages/model-providers/ ./packages/model-providers/
 COPY packages/plugin-sdk/ ./packages/plugin-sdk/
 COPY apps/api/ ./apps/api/
 # Internal packages must be built in dependency order: dependents resolve
 # @gameforge/* through node_modules symlinks into each package's dist/.
 RUN npm run build --workspace=@gameforge/shared \
+ && npm run build --workspace=@gameforge/model-providers \
  && npm run build --workspace=@gameforge/plugin-sdk \
  && npm run build --workspace=gameforge-api
 
@@ -48,6 +50,7 @@ COPY plugins/procedural-geometry/package.json ./plugins/procedural-geometry/
 COPY plugins/asset-thumbnail/package.json ./plugins/asset-thumbnail/
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 COPY --from=build /build/packages/shared/dist ./packages/shared/dist
+COPY --from=build /build/packages/model-providers/dist ./packages/model-providers/dist
 COPY --from=build /build/packages/plugin-sdk/dist ./packages/plugin-sdk/dist
 COPY --from=build /build/apps/api/dist ./apps/api/dist
 # STORAGE_ROOT is bind-mounted at runtime (see docker-compose.yml)
