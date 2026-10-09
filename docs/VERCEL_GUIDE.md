@@ -31,7 +31,7 @@ Add exactly one variable (no secrets — this value ships in the client bundle):
 
 | Name | Value | Notes |
 |---|---|---|
-| `VITE_API_URL` | `https://YOUR_DOMAIN/api` | No trailing slash. This is the Caddy-proxied API origin. The only `import.meta.env.VITE_*` variable the app reads (`apps/web/src/api/client.ts`). |
+| `VITE_API_URL` | `https://YOUR_DOMAIN:8443` | Origin only, NO `/api` suffix and no trailing slash. The client appends `/api/v1/...` itself (`apps/web/src/api/client.ts`). |
 
 `VITE_API_URL` is baked in **at build time**. If you change it later, redeploy
 (Vercel rebuilds automatically on variable change).
