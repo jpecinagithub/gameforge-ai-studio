@@ -56,8 +56,7 @@ advice [VERIFIED: `reference/licensing-faq.md`]. GameForge must write its own te
 4. **Genex ships no LLM and pays for no tokens.** It *borrows the user's subscriptions*
    (Claude Code CLI / Codex CLI) or runs local models (Ollama, bundled Bonsai 27B
    ternary). Its metered engine (OpenRouter) is **never auto-selected** [VERIFIED:
-   `src/shared/providers.ts`, `docs/agent/architecture.md`]. GameForge's Groq
-   pay-per-token design is the **economic inverse**: Genex's metered-engine guards become
+   `src/shared/providers.ts`, `docs/agent/architecture.md`]. GameForge's Cloudflare Workers AI neuron-metered design is the **economic inverse**: Genex's metered-engine guards become
    GameForge's *primary* cost design (budgets, wall clocks, usage accounting).
 5. **Genex is a macOS-first Electron desktop app** ("Self-improving AI game studio for
    macOS on Apple Silicon") [VERIFIED: `package.json`]; Linux x64 shipped, Windows
@@ -116,9 +115,9 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
   you ship this?" verdict — defects routed as finish work but **never vetoes a landing**)
   [VERIFIED: `docs/agent/architecture.md`, `docs/harness-runtime.md`].
 - **GameForge:** Same role model and mode set, adapted to a server orchestrator:
-  director = one Groq tool-calling session (the AGENT JOB project already proved
-  `openai/gpt-oss-120b` tool-calling works on Groq); workers = queued BullMQ jobs with
-  per-facet git worktrees/branches; judges = fresh-context one-shot Groq calls with
+  director = one Workers AI tool-calling session (the AGENT JOB project already proved
+  `openai/gpt-oss-120b` tool-calling works via an OpenAI-compatible client); workers = queued BullMQ jobs with
+  per-facet git worktrees/branches; judges = fresh-context one-shot Workers AI calls with
   screenshots attached (vision-capable model where available, else deterministic checks
   labeled "visual assessment unverified"). Execution modes Manual/Auto/Loop map to
   director-on-demand / autopilot-fixed-pipeline / facet-loop-with-budgets. Typed
@@ -129,13 +128,13 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
   (MIT, with notice). The harness-seed is Node TS with **no Electron imports** and talks
   to the host only through the typed `HostMethod` RPC vocabulary [VERIFIED:
   `src/shared/harness-api.ts`] — a server host can implement the same RPC surface.
-- **Required changes:** Vendor-CLI delegated sessions don't exist for Groq → use the
-  harness's own tool loop (`turn-loop.ts`, max 30 rounds/turn) with a Groq
-  OpenAI-compatible client (as AGENT JOB's GroqClient does). Parallel workers limited by
+- **Required changes:** Vendor-CLI delegated sessions don't exist for Workers AI → use the
+  harness's own tool loop (`turn-loop.ts`, max 30 rounds/turn) with an
+  OpenAI-compatible client. Parallel workers limited by
   Oracle CPU/RAM (Genex caps at 12 "a machine on its knees"; server default lower, e.g. 2–4).
-- **Limitations:** Groq has no sessions/memory across calls — wake/digest must be
+- **Limitations:** Workers AI has no sessions/memory across calls — wake/digest must be
   rehydrated from the persisted run journal each wake. No subscription delegation: every
-  token is billed; budgets are load-bearing.
+  neuron is billed; budgets are load-bearing.
 - **Acceptance:** A run creates planner/builder/judge tasks with per-role models; workers
   build in isolated branches; judges return blind verdicts with provenance; stop codes
   are typed; a run can be paused/resumed/canceled.
@@ -181,13 +180,13 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
   game code; Playwright drives deterministic playthroughs (seeded), captures
   screenshots, reads console/network, and runs `state()`/`inspect()` probes via page
   evaluate. Pixel statistics give model-free blank detection. Vision review submits
-  bounded screenshots to a vision-capable Groq model *only if the model registry
+  bounded screenshots to a vision-capable Workers AI model *only if the model registry
   verifies vision support*; otherwise label "visual assessment unverified".
 - **Reusable:** The `window.__studio` contract design and the evidence/judge prompt
   patterns (MIT, with notice). The shim concept is engine-agnostic JavaScript.
 - **Required changes:** `game://` scheme + Electron `webContents` → Express page server
   + Playwright CDP; Electron `WebContentsView` pool → headless Chromium pool (bounded by
-  server RAM); vision judge → Groq vision model w/ capability check.
+  server RAM); vision judge → Workers AI vision model w/ capability check.
 - **Limitations:** Browser-tab preview can't do cross-origin screenshotting — the live
   user preview uses a cooperative `postMessage` contract + server-captured stills, while
   *authoritative* verification happens server-side in headless Chromium.
@@ -307,7 +306,7 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
 - **Required changes:** Electron asset preview → web viewers; native Blender process →
   containerized Blender job on Oracle (only if the instance supports it — check OS/arch/
   RAM first, else keep the adapter disabled with a transparent explanation).
-- **Limitations:** No Groq 3D/music/video generation — never claim it. Blender
+- **Limitations:** No Workers AI 3D/music/video generation — never claim it. Blender
   availability depends on the Oracle instance.
 - **Acceptance:** Scenario E: GLB import → validated, metadata stored, preview renders,
   model loads in the running game (verified stage), runtime loading checked.
@@ -495,16 +494,16 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
 1. **Harness portability:** Reimplement the `HostMethod` RPC vocabulary on a Fastify
    server; keep the planner/builder/judge role model, the five loop modes (director,
    autopilot, facet loop, gauntlet, spike), typed StopCodes, and the wake/digest
-   pattern (rehydrated from the Postgres run journal — Groq has no sessions).
+   pattern (rehydrated from the Postgres run journal — Workers AI has no sessions).
 2. **`window.__studio` contract:** The single highest-value mechanism. Implement the
    page server + shim injection + CDP-driven evidence pipeline first (Phase 3), because
    every acceptance scenario depends on it.
 3. **Versioning:** One git repo per project on the server; Genex's ref-namespace scheme
    (`refs/studio/runs/<id>/…`, chat checkpoints per message) adopted verbatim.
 4. **Cost design:** Per-completion usage accounting, per-role model selection with a
-   live capability registry (never hardcode model names — Genex's own rule; Groq model
+   live capability registry (never hardcode model names — Genex's own rule; Workers AI model
    availability is probed at startup as the master prompt requires), budgets + wall
-   clocks + exponential backoff, metered-everything posture (Groq is always metered).
+   clocks + exponential backoff, metered-everything posture (Workers AI is always metered).
 5. **Security:** Container-based runner (the seatbelt→container substitution), typed
    API (OpenAPI + zod), redaction-on-append, server vault, separate preview origin +
    sandboxed iframe + CSP, infrastructure access boundary (no login by design).
@@ -519,9 +518,9 @@ Format per feature: **Genex behavior** → **Evidence** → **GameForge proposal
 
 - **R1.** Oracle instance sizing (CPU/RAM/arch) — unknown until inspected; decides
   Chromium pool size, Blender viability, worker concurrency. (Check in Phase 2/6.)
-- **R2.** Groq vision-capable models — availability and limits verified at startup via
+- **R2.** Workers AI vision-capable models — availability and limits verified at startup via
   the model registry; semantic review degrades gracefully to deterministic checks.
-- **R3.** Groq rate limits under parallel workers — the provider failure ladder
+- **R3.** Workers AI rate limits under parallel workers — the provider failure ladder
   (rate-limit → backoff → reduce concurrency) needs real-world tuning.
 - **R4.** Blender on Oracle Linux — CPU-only workflows, bounded complexity; keep the
   adapter disabled with a transparent explanation if the instance can't run it.

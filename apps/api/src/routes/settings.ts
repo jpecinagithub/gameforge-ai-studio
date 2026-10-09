@@ -39,7 +39,7 @@ export async function settingsRoutes(fastify: FastifyInstance): Promise<void> {
         );
       }
       const value = raw[key];
-      if (typeof value === 'string' && /^(gsk_|sk-|-----BEGIN)/.test(value)) {
+      if (typeof value === 'string' && /^(sk-|-----BEGIN)/.test(value)) {
         throw badRequest(
           `Refusing to store a secret-looking value for '${key}'; secrets live in the server vault`,
         );

@@ -2,7 +2,7 @@
 
 Generated: 2026-10-09 (acceptance suite, `packages/test-runner/src/acceptance/`)
 Environment: node v24.20.0, linux/x64, **real Chromium available** (Chrome for Testing 153, software WebGL),
-Docker unavailable, no Groq key.
+Docker unavailable, no Cloudflare credentials.
 
 The suite (`npx vitest run src/acceptance` in `packages/test-runner`, 6/6 green)
 exercises REAL code paths: the real 15-phase build pipeline, the real preview
@@ -34,7 +34,7 @@ asserted step really ran.
   a true process kill exercises the worker's BullMQ resume path. Oracle only.
 - **GLB runtime checks (Scenario E remainder)** — route-level validation ran for real;
   loading a model in a live game page needs the preview origin. Oracle only.
-- **Groq-backed flows** (director runs, semantic visual review, real AI acceptance) —
+- **Cloudflare-backed flows** (director runs, semantic visual review, real AI acceptance) —
   no key in this environment. The vision gate is implemented and tested with mocks;
   unverified reviews are labeled, never presented as verified.
 - **CDN three.js in headless runs** — this sandbox's egress proxy is unreachable from
@@ -67,5 +67,5 @@ npx tsc --noEmit -p tsconfig.acceptance.json   # typecheck the harness
 ```
 
 The suite auto-detects its environment (`chromium: available|unavailable`,
-`docker`, `groqKey`) and degrades honestly: without a Chromium binary the
+`docker`, `providerCredentials`) and degrades honestly: without a Chromium binary the
 browser-bound checks become `skip` (outcome `partial`), never fake passes.

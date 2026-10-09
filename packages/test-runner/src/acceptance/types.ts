@@ -5,7 +5,7 @@
  * the real build pipeline, the real preview page server, the real
  * export-ZIP module, the real asset upload routes, and the real
  * asset-thumbnail plugin. Boundaries that genuinely need live
- * infrastructure (Chromium, Docker, Postgres, Redis, Groq key) are
+ * infrastructure (Chromium, Docker, Postgres, Redis, AI provider credentials) are
  * NOT faked: the checks that need them are recorded as `skip` with
  * an explicit `notRunnableHere` reason, which caps the scenario at
  * `partial`. A scenario is `verified` only when every asserted step
@@ -47,7 +47,7 @@ export interface AcceptanceEnvironment {
   platform: string;
   chromium: 'available' | 'unavailable';
   docker: 'available' | 'unavailable';
-  groqKey: 'set' | 'unset';
+  providerCredentials: 'set' | 'unset';
 }
 
 export interface AcceptanceRun {

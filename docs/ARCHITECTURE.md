@@ -17,7 +17,7 @@ Genex Desktop and the Genex skill/tooling repos).
 ## 1. System overview
 
 GameForge AI Studio is a browser-based AI game-development studio. A single user describes a
-game in natural language; a server-side orchestrator runs specialized AI agents (Groq) that
+game in natural language; a server-side orchestrator runs specialized AI agents (Cloudflare Workers AI) that
 generate real source files, build, test, visually verify, and export working browser games —
 all on the user's own Oracle Cloud Linux server. The Vercel frontend is a thin, stateless
 control surface: durable state lives in Postgres; durable scheduling lives in BullMQ/Redis;
@@ -96,7 +96,7 @@ the game preview and the `__studio` page server live on a **separate preview ori
 4. **No fake features.** An unavailable capability renders as *unavailable*, never as a dead
    button (e.g. Blender adapter disabled until the Oracle instance proves capable; vision
    review labeled "unverified" when no vision model exists).
-5. **Cost is a first-class constraint.** Groq is always metered (the economic inverse of
+5. **Cost is a first-class constraint.** Workers AI is always metered in neurons (the economic inverse of
    Genex's borrow-your-subscription model): budgets, wall clocks, and per-completion usage
    accounting are load-bearing architecture, not telemetry.
 
@@ -116,7 +116,7 @@ the game preview and the `__studio` page server live on a **separate preview ori
 - Monaco code editor (optimistic concurrency via expected-commit-SHA), asset manager,
   build graph, Activity panel, diagnostics dashboard, Settings.
 - SSE client with stable event IDs + reconnect replay (Section 8).
-- **Never ships secrets.** No Groq key, no Oracle credentials, no preview-internal data in
+- **Never ships secrets.** No Cloudflare API token, no Oracle credentials, no preview-internal data in
   the client bundle. Vercel Analytics included; the key boundary is a build-time assertion.
 
 ### apps/api — Control plane (Fastify, Oracle)
@@ -128,7 +128,7 @@ the game preview and the `__studio` page server live on a **separate preview ori
   publicly exposed; deployment requires VPN/private connectivity — a **deployment
   prerequisite, documented as such**, not a code feature `[OPEN: exact mechanism chosen at
   deploy time, e.g. WireGuard vs security-group allowlist]`.
-- Model registry cache (Groq model probing, Section 7); Groq connectivity test endpoint
+- Model registry cache (Workers AI model probing, Section 7); provider connectivity test endpoint
   (returns capability matrix, never the key).
 - Hosts the `__studio` **page server** endpoints for headless evidence runs (shim injection
   point). Serves preview-origin traffic separately from control traffic.
@@ -138,11 +138,11 @@ the game preview and the `__studio` page server live on a **separate preview ori
 - BullMQ consumers: `agent-jobs`, `build-jobs`, `evidence-jobs`, `asset-jobs`, `plugin-jobs`,
   delayed wake/digest jobs.
 - Implements the **director / workers / judges** role model (adapted-from-Genex):
-  - **Director** (one Groq tool-calling session per run, ≤ N wakes; ≤ 30 wakes/hour analog).
+  - **Director** (one Workers AI tool-calling session per run, ≤ N wakes; ≤ 30 wakes/hour analog).
   - **Workers**: planner, builder (per-facet, parallel-bounded by server capacity), plus
     role agents — gameplay, scene/visual, UI, asset, QA — with per-role prompts, model
     selection, tool permissions, timeouts, iteration limits, token budgets.
-  - **Judges**: fresh-context one-shot Groq calls; blind A/B compares (a pick + the biggest
+  - **Judges**: fresh-context one-shot Workers AI calls; blind A/B compares (a pick + the biggest
     gap, never a score — adapted-from-Genex gauntlet discipline); one-question vision
     checks; art-director "would you ship this?" verdict (routes defects as finish work,
     **never vetoes a landing** — adapted-from-Genex).
@@ -152,7 +152,7 @@ the game preview and the `__studio` page server live on a **separate preview ori
   autopilot pipeline with bounded auto-correction), **Loop** (facet build⟳verify against
   fixed acceptance criteria, gated by iteration/time/model budgets + measurable progress).
 - Wake/digest pattern: director state rehydrated from the Postgres run journal each wake
-  (Groq has no sessions) — adapted-from-Genex, storage-substituted.
+  (Workers AI has no sessions) — adapted-from-Genex, storage-substituted.
 - Build pipeline (Section 3c), evidence pipeline (Section 4), crash recovery (Section 5).
 - **The worker never runs untrusted code in-process**; all generated code runs in runner
   containers via a narrow, typed tool-call interface (structured args, validated — never
@@ -201,10 +201,10 @@ the game preview and the `__studio` page server live on a **separate preview ori
 
 ### packages/model-providers
 
-- Groq provider adapter (OpenAI-compatible client, tool calling, streaming), capability
+- Cloudflare Workers AI provider adapter (OpenAI-compatible client, tool calling, streaming), capability
   registry (Section 7), rate-limit/token-accounting/backoff/budget enforcement, provider
   failure ladder (rate-limit → backoff → reduce worker concurrency → pause).
-- Provider interface is replaceable; Groq is the only configured provider in v1.
+- Provider interface is replaceable; Cloudflare Workers AI is the configured provider.
 
 ### packages/test-runner
 
@@ -356,7 +356,7 @@ window.__studio = {
    collected; blank detection via pixel statistics (`lumaMean`, `lumaStdDev`,
    `nearBlackFraction`, `litFraction`) — no model required (adapted-from-Genex).
 4. Vision review (optional): bounded screenshots + acceptance criteria submitted to a
-   Groq model **only if the registry verifies vision capability**; otherwise the result is
+   Workers AI model **only if the registry verifies vision capability**; otherwise the result is
    labeled **"visual assessment unverified"** and deterministic checks stand alone.
 5. Judges run fresh-context, one-shot, blind A/B (pick + biggest gap, never scores);
    garbled output keeps the incumbent.
@@ -413,14 +413,14 @@ run reopens as `interrupted` with completed steps intact; no duplicate paid oper
 
 ## 7. Cost control architecture
 
-Groq is always metered — the **economic inverse** of Genex's borrow-your-subscription model.
+Workers AI is always metered — the **economic inverse** of Genex's borrow-your-subscription model.
 Genex's metered-engine guards become GameForge's primary cost design:
 
 1. **Per-role model selection.** Each agent role (planning, code generation, code review,
    general reasoning, tool orchestration, vision, summarization, memory consolidation) has
    a separately configurable model binding. Multiple roles may share one model.
 2. **Live capability registry, never hardcoded model names.** At startup (and on demand),
-   the server probes Groq's model list and documented capabilities; the registry records
+   the server probes the account's Workers AI model catalog and documented capabilities; the registry records
    per-model: tool-calling support, vision support, context window, known limits. If a
    role's model lacks a required capability, the system selects a verified compatible
    model or displays a clear limitation (Genex's own rule: metered engines are never
@@ -436,7 +436,7 @@ Genex's metered-engine guards become GameForge's primary cost design:
    `[OPEN R3: real-world tuning under parallel workers.]`
 6. **No fabricated LLM responses.** Mocked/deterministic responses exist only in the
    test suite and are never presented as live AI results. The opt-in "real AI acceptance"
-   test uses the user's configured Groq key and proves: structured work → files written →
+   test uses the user's configured Cloudflare credentials and proves: structured work → files written →
    built game executes.
 
 ---
@@ -475,7 +475,7 @@ Genex's metered-engine guards become GameForge's primary cost design:
 - Vite production build, SPA routing (`vercel.json` rewrites), PWA manifest + service
   worker with safe update behavior, Vercel Analytics.
 - Single environment variable: backend URL. **Build-time assertion: no secret-shaped
-  values in the client bundle** (Groq key, Oracle credentials).
+  values in the client bundle** (Cloudflare token, Oracle credentials).
 - Vercel is hands-off by default: the agent pushes code to GitHub; the user imports and
   deploys. Vercel-bound commits use the user's GitHub identity.
 
@@ -522,8 +522,8 @@ disabling resource-heavy capabilities when unsupported `[OPEN R1/R4]`.
 | ID | Risk | Status / plan |
 |---|---|---|
 | **R1** | Oracle instance sizing (CPU/RAM/arch) unknown | Decide at Phase 2 startup-inspection implementation; sets Chromium pool size, worker concurrency, Blender viability. |
-| **R2** | Groq vision-capable models — availability & limits | Verified at startup via the live capability registry (Section 7); semantic review degrades gracefully to deterministic checks labeled "visual assessment unverified". |
-| **R3** | Groq rate limits under parallel workers | Provider failure ladder (Section 7.5) needs real-world tuning; keep default worker parallelism conservative (2–4, vs Genex's 12 on a desktop). |
+| **R2** | Workers AI vision-capable models — availability & limits | Verified at startup via the live capability registry (Section 7); semantic review degrades gracefully to deterministic checks labeled "visual assessment unverified". |
+| **R3** | Workers AI rate limits under parallel workers | Provider failure ladder (Section 7.5) needs real-world tuning; keep default worker parallelism conservative (2–4, vs Genex's 12 on a desktop). |
 | **R4** | Blender on Oracle Linux | CPU-only, bounded complexity; adapter ships **disabled** with a transparent explanation if the instance can't run it. |
 | **R5** | No-login + code execution → infrastructure access boundary | A **deployment prerequisite** (VPN/private connectivity), not a code feature; documented in the threat model (Phase 7). |
 

@@ -19,7 +19,7 @@ compile, test, preview, improve and export a real working browser game.
 | `packages/agent-core` | Orchestrator: roles, modes, tool loop, judges, memory |
 | `packages/game-templates` | 8 functional starter templates (three.js primary) |
 | `packages/plugin-sdk` | Plugin manifest SDK + host-service bridge |
-| `packages/model-providers` | Groq adapter, capability registry, budgets, backoff |
+| `packages/model-providers` | Cloudflare Workers AI adapter, capability registry, budgets, backoff |
 | `packages/test-runner` | Build/test/evidence pipeline (Playwright, `window.__studio`) |
 | `infra/db/migrations` | Versioned PostgreSQL migrations |
 | `infra/deploy` | Docker Compose, systemd units, reverse-proxy config |

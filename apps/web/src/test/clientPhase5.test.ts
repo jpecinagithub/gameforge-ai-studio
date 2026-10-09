@@ -109,12 +109,12 @@ describe('Phase 5 client functions', () => {
       json: async () => ({
         capabilityKeys: ['supports_tools'],
         agentRoles: ['director', 'reviewer'],
-        provider: 'groq',
+        provider: 'cloudflare',
       }),
     });
     const caps = await getModelCapabilities();
     expect(caps.agentRoles).toContain('reviewer');
-    expect(caps.provider).toBe('groq');
+    expect(caps.provider).toBe('cloudflare');
   });
 });
 

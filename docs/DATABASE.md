@@ -189,12 +189,15 @@ manifest_sha char(64), installed_at, updated_at.
 → vault reference, never plaintext), PK (plugin_id, key).
 
 ### 1.17 model_registry
-id uuid PK, provider text not null default 'groq', model_id text unique not null,
+id uuid PK, provider text not null default 'cloudflare', model_id text unique not null,
 display_name text, capabilities jsonb not null
 (`{context_window, supports_tools, supports_vision, supports_json_mode, max_output_tokens}`),
 discovered_at timestamptz, last_seen_at timestamptz, active boolean default true.
 **Never hardcode model names in code** — all selection goes through this table,
-refreshed from `GET /v1/models` at startup and on demand (master prompt §2).
+refreshed from the Cloudflare Workers AI model catalog
+(`GET /accounts/{account_id}/ai/models/search`) at startup and on demand
+(master prompt §2). Migration 0005 changed the provider default from 'groq'
+to 'cloudflare' (2026-10-09 provider switch; 0001 is immutable).
 
 ### 1.18 model_usage
 id bigserial PK, run_id text nullable, task_id uuid nullable, agent_role text,

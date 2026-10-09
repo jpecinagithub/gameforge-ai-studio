@@ -3,7 +3,7 @@
  * REAL code (pipeline, page server, export module, asset routes, thumbnail
  * plugin) and returns a ScenarioReport whose outcome is derived honestly:
  * any check that needed infrastructure this VM lacks (Chromium, Docker,
- * Postgres, Redis, a Groq key) is recorded as `skip` with
+ * Postgres, Redis, AI provider credentials) is recorded as `skip` with
  * `notRunnableHere`, capping the outcome at `partial` — never verified.
  */
 import { appendFileSync, existsSync } from 'node:fs';
@@ -191,7 +191,7 @@ export async function scenarioA(): Promise<ScenarioReport> {
   );
 
   // Secret scan: a secret-shaped file must REFUSE the export.
-  writeFile(projectDir, 'config.js', 'const GROQ_API_KEY="gsk_abcdefghijklmnop1234";\n');
+  writeFile(projectDir, 'config.js', 'const CLOUDFLARE_API_TOKEN="cfut_test_secret_123";\n');
   const { execFileSync } = await import('node:child_process');
   execFileSync('git', ['add', '-A'], { cwd: projectDir, stdio: 'pipe' });
   execFileSync('git', ['commit', '-q', '-m', 'add secret'], { cwd: projectDir, stdio: 'pipe' });

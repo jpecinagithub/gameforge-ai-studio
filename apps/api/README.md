@@ -29,7 +29,7 @@ stays green, `/ready` reports the outage, and DB-backed routes return
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `REDIS_URL` | Redis connection string (BullMQ) |
-| `GROQ_API_KEY` | Server-side only. Registered with the secret redactor at boot; **never** returned by any endpoint, never logged |
+| `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` | Server-side only. Token registered with the secret redactor at boot; **never** returned by any endpoint, never logged |
 | `STORAGE_ROOT` | Filesystem root for project git repos (`projects/<uuid>/repo`) |
 | `ALLOWED_ORIGINS` | Comma-separated CORS origins. Empty = none. `*` is refused in production |
 | `PORT` / `BIND_ADDR` | Listen port / address (default `8090` / `127.0.0.1`) |
@@ -83,12 +83,12 @@ validation_failed`. Stack traces and secrets never leave the process.
 
 ## `POST /models/connection-test` — token-cost policy
 
-- **Without parameters:** only calls Groq `GET /v1/models` (list). **Zero token cost.**
+- **Without parameters:** only calls the Workers AI model catalog (list). **Zero neuron cost.**
   Returns `{ ok, modelCount, toolProbe: null }`.
 - **With `?probeTools=true`:** additionally runs `probeToolSupport()` — one minimal
   chat completion with a dummy tool definition — against the model bound to the
   **director** role (`application_settings.modelByRole.director`). **This spends
-  tokens** and runs **only** on explicit request; any other value (or none) keeps the
+  neurons** and runs **only** on explicit request; any other value (or none) keeps the
   zero-cost path. Returns `{ ok, modelCount, toolProbe: { model, supported } | null }`
   (`null` when no director model is configured or the provider package has no probe).
 - The response never contains the API key, its prefix, or any credential material.

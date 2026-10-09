@@ -39,7 +39,7 @@ export async function systemRoutes(fastify: FastifyInstance): Promise<void> {
       runner = 'unavailable';
     }
     return {
-      engines: ['groq'],
+      engines: ['cloudflare-workers-ai'],
       templates: [...TEMPLATE_IDS],
       runner,
       // Blender adapter exists only after the Oracle instance proves capable (Phase 6).

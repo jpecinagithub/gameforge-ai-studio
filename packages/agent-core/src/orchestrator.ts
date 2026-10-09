@@ -34,7 +34,7 @@ import {
 import {
   BudgetTracker,
   type BudgetLimits,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -84,7 +84,7 @@ export interface MultiAgentJobOptions {
   queues: QueuesLike;
   workDir: string;
   userRequest: string;
-  groq: GroqClient;
+  provider: CloudflareClient;
   registry: ModelRegistry;
   budgets?: BudgetLimits;
   evidence: EvidenceProvider;
@@ -168,7 +168,7 @@ interface OrchestratorDeps {
 /** Build the synchronous in-process task dispatcher bound to this run. */
 function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
   const { opts, budgets, baseCtx, git, redactor } = deps;
-  const { runId, workDir, taskStore, groq, registry, events } = opts;
+  const { runId, workDir, taskStore, provider, registry, events } = opts;
 
   return {
     dispatch: async (
@@ -235,7 +235,7 @@ function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
           runId,
           workDir: roleCtx.workDir,
           ctx: roleCtx,
-          groq,
+          provider,
           registry,
           budgets,
           role,
@@ -323,7 +323,7 @@ export async function runMultiAgentJob(
     runId: opts.runId,
     workDir: opts.workDir,
     ctx: directorCtx,
-    groq: opts.groq,
+    provider: opts.provider,
     registry: opts.registry,
     budgets,
     systemPrompt: directorDef.systemPrompt,
@@ -396,7 +396,7 @@ export async function runMultiAgentJob(
         evidence: incumbentEvidence,
       };
       review = await blindReview({
-        groq: opts.groq,
+        provider: opts.provider,
         registry: opts.registry,
         budgets,
         candidateA,
@@ -492,7 +492,7 @@ export async function runMultiAgentJob(
         runId: opts.runId,
         workDir: opts.workDir,
         ctx: loopCtx,
-        groq: opts.groq,
+        provider: opts.provider,
         registry: opts.registry,
         budgets,
         systemPrompt: directorDef.systemPrompt,

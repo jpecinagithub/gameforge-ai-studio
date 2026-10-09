@@ -86,8 +86,8 @@ describe('buildExportZip', () => {
     try {
       initRepo(dir2, {
         'index.html': '<html></html>',
-        // A Groq-key shape the shared redactor knows.
-        'config.js': 'const key = "gsk_abcdefghijklmnopqrstuvwxyz0123456789";',
+        // A TOKEN= shape the shared redactor knows (Cloudflare tokens have no stable prefix).
+        'config.js': 'const CLOUDFLARE_API_TOKEN = "cfut_test_secret_abcdefgh0123456789";',
       });
       await expect(buildExportZip(dir2, 'Leaky', 'empty-three')).rejects.toBeInstanceOf(
         ExportBlockedError,

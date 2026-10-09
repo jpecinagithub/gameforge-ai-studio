@@ -2,7 +2,7 @@
  * visualReview tests — the honesty contract is the point:
  * - 'verified' ONLY when a live vision model actually reviewed the shots.
  * - every other path → 'unverified' with an explicit reason.
- * No test touches a real Groq endpoint.
+ * No test touches a real Cloudflare endpoint.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { ModelUnavailableError } from '@gameforge/model-providers';
@@ -30,7 +30,7 @@ function noVisionRegistry() {
   } as unknown as VisualReviewDeps['registry'];
 }
 
-/** Fake Groq client: probe answers OK (or per `probeBehavior`), review answers `reviewReply`. */
+/** Fake provider client: probe answers OK (or per `probeBehavior`), review answers `reviewReply`. */
 function fakeClient(opts: {
   probeBehavior?: 'ok' | 'empty' | 'throws';
   reviewReply?: string | null;

@@ -17,7 +17,7 @@ import { StopCode } from '@gameforge/shared';
 import {
   computeCost,
   type BudgetTracker,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -44,7 +44,7 @@ export interface BlindReviewResult {
 }
 
 export interface BlindReviewOptions {
-  groq: GroqClient;
+  provider: CloudflareClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   candidateA: ReviewCandidate;
@@ -122,7 +122,7 @@ export function parseVerdict(text: string | null): ParsedVerdict | null {
 
 export async function blindReview(opts: BlindReviewOptions): Promise<BlindReviewResult> {
   const {
-    groq,
+    provider,
     registry,
     budgets,
     candidateA,
@@ -153,7 +153,7 @@ export async function blindReview(opts: BlindReviewOptions): Promise<BlindReview
   while (attempts < maxAttempts) {
     attempts += 1;
     budgets.checkTime();
-    const res = await groq.chatCompletions({ model, messages });
+    const res = await provider.chatCompletions({ model, messages });
     const costUsd = computeCost(model, res.usage.inputTokens, res.usage.outputTokens);
     budgets.recordUsage({
       inputTokens: res.usage.inputTokens,

@@ -1,19 +1,32 @@
 /**
- * GroqCloud API client (OpenAI-compatible `/openai/v1` surface).
+ * Cloudflare Workers AI client (OpenAI-compatible `/ai/v1` surface).
  *
- * - Server-side only. The API key lives in server env (GROQ_API_KEY) and is
- *   NEVER included in error messages — every error string passes through the
- *   shared secret redactor before it is constructed.
+ * Endpoints (verified against Cloudflare docs 2026-10-09):
+ * - Chat:    POST https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/v1/chat/completions
+ * - Catalog: GET  https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/models/search
+ * - Auth:    Authorization: Bearer <CLOUDFLARE_API_TOKEN> (Account > Workers AI > Read)
+ *
+ * The catalog's `result` entries carry `{ id: <uuid>, name: "@cf/..." }` — the
+ * callable model slug is `name`, NEVER the internal UUID.
+ *
+ * - Server-side only. The API token lives in server env (CLOUDFLARE_API_TOKEN)
+ *   and is NEVER included in error messages — every error string passes through
+ *   the shared secret redactor before it is constructed.
  * - Retries: exponential backoff with jitter, bounded retries ONLY on
  *   429 / 5xx / network errors / timeouts. Other 4xx throw immediately.
  * - Malformed tool-call arguments throw a typed BAD_RESPONSE error — they are
  *   never silently coerced.
+ * - Billing: Workers AI meters NEURONS (10,000 free neurons/day per account as
+ *   of 2026-10-09). Usage here tracks tokens; exact neuron pricing lives in
+ *   the Cloudflare dashboard and is never invented in this package.
  */
 import { createSecretRedactor } from '@gameforge/shared';
-import { GroqError, GroqErrorCode } from './errors.js';
+import { ProviderError, ProviderErrorCode } from './errors.js';
 
-export interface GroqClientOptions {
-  apiKey: string;
+export interface CloudflareClientOptions {
+  apiToken: string;
+  accountId: string;
+  /** Override for tests. Default https://api.cloudflare.com/client/v4 */
   baseUrl?: string;
   /** Per-request timeout in ms. Default 120_000. */
   timeoutMs?: number;
@@ -78,6 +91,14 @@ export interface ChatCompletionsResult {
   latencyMs: number;
 }
 
+/** One entry from the Workers AI model catalog (discovery only). */
+export interface CatalogModel {
+  /** The callable slug, e.g. "@cf/meta/llama-3.1-8b-instruct". */
+  name: string;
+  taskName: string;
+  description: string;
+}
+
 const defaultSleep = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -98,15 +119,24 @@ function extractTextContent(content: unknown, status: number): string | null {
     }
     return texts.length > 0 ? texts.join('') : null;
   }
-  throw new GroqError(
-    GroqErrorCode.BAD_RESPONSE,
-    'Groq returned message content of unexpected type.',
+  throw new ProviderError(
+    ProviderErrorCode.BAD_RESPONSE,
+    'Cloudflare returned message content of unexpected type.',
     { status, retryable: false },
   );
 }
 
-export class GroqClient {
+/** Convenience factory used by the API's lazy provider interface. */
+export function createCloudflareClient(
+  apiToken: string,
+  accountId: string,
+): CloudflareClient {
+  return new CloudflareClient({ apiToken, accountId });
+}
+
+export class CloudflareClient {
   private readonly baseUrl: string;
+  private readonly accountId: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly baseDelayMs: number;
@@ -114,44 +144,69 @@ export class GroqClient {
   private readonly headers: Record<string, string>;
   private readonly redactor = createSecretRedactor();
 
-  constructor(opts: GroqClientOptions) {
-    if (!opts.apiKey || opts.apiKey.trim().length === 0) {
-      throw new GroqError(
-        GroqErrorCode.AUTH_ERROR,
-        'GroqClient requires a non-empty apiKey (server env GROQ_API_KEY).',
+  constructor(opts: CloudflareClientOptions) {
+    if (!opts.apiToken || opts.apiToken.trim().length === 0) {
+      throw new ProviderError(
+        ProviderErrorCode.AUTH_ERROR,
+        'CloudflareClient requires a non-empty apiToken (server env CLOUDFLARE_API_TOKEN).',
         { retryable: false },
       );
     }
-    this.baseUrl = (opts.baseUrl ?? 'https://api.groq.com/openai/v1').replace(/\/+$/, '');
+    if (!opts.accountId || opts.accountId.trim().length === 0) {
+      throw new ProviderError(
+        ProviderErrorCode.AUTH_ERROR,
+        'CloudflareClient requires a non-empty accountId (server env CLOUDFLARE_ACCOUNT_ID).',
+        { retryable: false },
+      );
+    }
+    this.baseUrl = (opts.baseUrl ?? 'https://api.cloudflare.com/client/v4').replace(/\/+$/, '');
+    this.accountId = opts.accountId;
     this.timeoutMs = opts.timeoutMs ?? 120_000;
     this.maxRetries = opts.maxRetries ?? 4;
     this.baseDelayMs = opts.baseDelayMs ?? 1000;
     this.sleep = opts.sleep ?? defaultSleep;
     this.headers = {
-      Authorization: `Bearer ${opts.apiKey}`,
+      Authorization: `Bearer ${opts.apiToken}`,
       'Content-Type': 'application/json',
     };
-    // Belt-and-braces: the key can never appear in an error string we build.
-    this.redactor.addSecret('groq-api-key', opts.apiKey);
+    // Belt-and-braces: the token can never appear in an error string we build.
+    this.redactor.addSecret('cloudflare-api-token', opts.apiToken);
   }
 
-  /** GET /models → model id strings. */
+  private chatUrl(): string {
+    return `${this.baseUrl}/accounts/${this.accountId}/ai/v1/chat/completions`;
+  }
+
+  private catalogUrl(): string {
+    return (
+      `${this.baseUrl}/accounts/${this.accountId}/ai/models/search` +
+      `?task=${encodeURIComponent('Text Generation')}&per_page=200`
+    );
+  }
+
+  /**
+   * Discover text-generation models from the account catalog. Returns the
+   * callable `@cf/...` slugs (never the internal UUIDs), sorted.
+   */
   async listModels(signal?: AbortSignal): Promise<string[]> {
-    const res = await this.request('/models', { method: 'GET' }, signal);
-    const body = await this.parseJson(res, '/models');
-    const data = (body as { data?: unknown }).data;
-    if (!Array.isArray(data)) {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe('GET /models returned a body without a data array.'),
-        { status: res.status, retryable: false },
-      );
+    const res = await this.request('GET', this.catalogUrl(), undefined, signal);
+    const body = await this.parseJson(res, 'models catalog');
+    const envelope = this.parseEnvelope(body, 'models catalog', res.status);
+    const models: CatalogModel[] = [];
+    for (const entry of envelope) {
+      if (!isPlainObject(entry)) continue;
+      const name = typeof entry.name === 'string' ? entry.name : null;
+      const task = isPlainObject(entry.task) ? entry.task : null;
+      const taskName = task && typeof task.name === 'string' ? task.name : '';
+      if (!name || !name.startsWith('@cf/')) continue;
+      if (taskName !== 'Text Generation') continue;
+      models.push({
+        name,
+        taskName,
+        description: typeof entry.description === 'string' ? entry.description : '',
+      });
     }
-    const ids: string[] = [];
-    for (const entry of data) {
-      if (isPlainObject(entry) && typeof entry.id === 'string') ids.push(entry.id);
-    }
-    return ids;
+    return models.map((m) => m.name).sort();
   }
 
   async chatCompletions(opts: ChatCompletionsOptions): Promise<ChatCompletionsResult> {
@@ -167,11 +222,16 @@ export class GroqClient {
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
     const res = await this.request(
-      '/chat/completions',
-      { method: 'POST', body: JSON.stringify(body) },
+      'POST',
+      this.chatUrl(),
+      JSON.stringify(body),
       opts.signal,
     );
-    const json = await this.parseJson(res, '/chat/completions');
+    const json = await this.parseJson(res, 'chat completions');
+    // Cloudflare can wrap errors in a 200 envelope: { success: false, errors }.
+    // Chat completions are OpenAI-shaped (no result array), so only the
+    // failure envelope is checked here.
+    this.parseEnvelope(json, 'chat completions', res.status, false);
     const latencyMs = Date.now() - startedAt;
     return { ...this.parseCompletion(json, res.status), latencyMs };
   }
@@ -203,21 +263,22 @@ export class GroqClient {
   }
 
   private async request(
-    path: string,
-    init: { method: string; body?: string },
+    method: string,
+    url: string,
+    body: string | undefined,
     outerSignal?: AbortSignal,
   ): Promise<Response> {
     let attempt = 0;
 
     for (;;) {
       try {
-        const res = await this.fetchWithTimeout(path, init, outerSignal);
+        const res = await this.fetchWithTimeout(url, { method, body }, outerSignal);
 
         if (res.status === 429 || res.status >= 500) {
-          const retryable = new GroqError(
-            res.status === 429 ? GroqErrorCode.RATE_LIMITED : GroqErrorCode.NETWORK_ERROR,
+          const retryable = new ProviderError(
+            res.status === 429 ? ProviderErrorCode.RATE_LIMITED : ProviderErrorCode.NETWORK_ERROR,
             this.safe(
-              `Groq ${path} failed with HTTP ${res.status}${res.status === 429 ? ' (rate limited)' : ''}.`,
+              `Cloudflare Workers AI ${method} failed with HTTP ${res.status}${res.status === 429 ? ' (rate limited)' : ''}.`,
             ),
             { status: res.status, retryable: true },
           );
@@ -232,11 +293,11 @@ export class GroqClient {
 
         if (!res.ok) {
           // 4xx (other than 429) are never retried.
-          throw this.typedClientError(res, path);
+          throw await this.typedClientError(res, method);
         }
         return res;
       } catch (err) {
-        if (err instanceof GroqError && err.retryable && attempt < this.maxRetries) {
+        if (err instanceof ProviderError && err.retryable && attempt < this.maxRetries) {
           await this.sleep(this.backoffDelay(attempt));
           attempt += 1;
           continue;
@@ -252,7 +313,7 @@ export class GroqClient {
    * the race guarantees we never hang regardless).
    */
   private fetchWithTimeout(
-    path: string,
+    url: string,
     init: { method: string; body?: string },
     outerSignal?: AbortSignal,
   ): Promise<Response> {
@@ -269,9 +330,9 @@ export class GroqClient {
         done();
         controller.abort();
         reject(
-          new GroqError(
-            GroqErrorCode.TIMEOUT,
-            this.safe(`Groq request ${path} timed out after ${this.timeoutMs}ms.`),
+          new ProviderError(
+            ProviderErrorCode.TIMEOUT,
+            this.safe(`Cloudflare Workers AI request timed out after ${this.timeoutMs}ms.`),
             { retryable: true },
           ),
         );
@@ -282,9 +343,11 @@ export class GroqClient {
         done();
         controller.abort();
         reject(
-          new GroqError(GroqErrorCode.TIMEOUT, this.safe('Groq request aborted.'), {
-            retryable: false,
-          }),
+          new ProviderError(
+            ProviderErrorCode.TIMEOUT,
+            this.safe('Cloudflare Workers AI request aborted.'),
+            { retryable: false },
+          ),
         );
       };
       if (outerSignal?.aborted) {
@@ -293,7 +356,7 @@ export class GroqClient {
       }
       outerSignal?.addEventListener('abort', onOuterAbort, { once: true });
 
-      fetch(`${this.baseUrl}${path}`, {
+      fetch(url, {
         method: init.method,
         headers: this.headers,
         body: init.body,
@@ -310,58 +373,115 @@ export class GroqClient {
           // DNS / refused / reset — retryable. (Our own timeout already
           // rejected above via the race, so this is a genuine network error.)
           reject(
-            new GroqError(GroqErrorCode.NETWORK_ERROR, this.safe(`Groq network error on ${path}.`), {
-              retryable: true,
-              cause: err,
-            }),
+            new ProviderError(
+              ProviderErrorCode.NETWORK_ERROR,
+              this.safe('Cloudflare Workers AI network error.'),
+              { retryable: true, cause: err },
+            ),
           );
         },
       );
     });
   }
 
-  private typedClientError(res: Response, path: string): GroqError {
+  /** Extract the first Cloudflare envelope error message, if the body has one. */
+  private async envelopeErrorMessage(res: Response): Promise<string> {
+    const text = await res.text().catch(() => '');
+    if (!text) return '';
+    try {
+      const body = JSON.parse(text) as unknown;
+      if (!isPlainObject(body) || !Array.isArray(body.errors)) return '';
+      const first = body.errors.find(isPlainObject);
+      return first && typeof first.message === 'string' ? first.message : '';
+    } catch {
+      return '';
+    }
+  }
+
+  private async typedClientError(res: Response, method: string): Promise<ProviderError> {
     // 4xx (other than 429) are never retried.
     const status = res.status;
+    const detail = await this.envelopeErrorMessage(res).catch(() => '');
+    const suffix = detail ? ` Cloudflare says: ${detail}` : '';
     if (status === 401 || status === 403) {
-      return new GroqError(
-        GroqErrorCode.AUTH_ERROR,
-        this.safe(`Groq ${path} rejected credentials (HTTP ${status}). Check GROQ_API_KEY.`),
+      return new ProviderError(
+        ProviderErrorCode.AUTH_ERROR,
+        this.safe(
+          `Cloudflare Workers AI rejected credentials (HTTP ${status}).${suffix} ` +
+            'Check CLOUDFLARE_API_TOKEN (needs Account > Workers AI > Read) and CLOUDFLARE_ACCOUNT_ID.',
+        ),
         { status, retryable: false },
       );
     }
     if (status === 404) {
-      return new GroqError(
-        GroqErrorCode.MODEL_NOT_FOUND,
-        this.safe(`Groq ${path} returned 404 — the model may not exist or was retired.`),
+      return new ProviderError(
+        ProviderErrorCode.MODEL_NOT_FOUND,
+        this.safe(
+          `Cloudflare Workers AI returned 404 — the model may not exist or was retired.${suffix}`,
+        ),
         { status, retryable: false },
       );
     }
-    return new GroqError(
-      GroqErrorCode.BAD_REQUEST,
-      this.safe(`Groq ${path} rejected the request (HTTP ${status}).`),
+    return new ProviderError(
+      ProviderErrorCode.BAD_REQUEST,
+      this.safe(`Cloudflare Workers AI rejected the request (HTTP ${status}).${suffix}`),
       { status, retryable: false },
     );
   }
 
-  private async parseJson(res: Response, path: string): Promise<unknown> {
+  private async parseJson(res: Response, what: string): Promise<unknown> {
     const text = await res.text().catch(() => '');
     if (!text) {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe(`Groq ${path} returned an empty body.`),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe(`Cloudflare Workers AI ${what} returned an empty body.`),
         { status: res.status, retryable: false },
       );
     }
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe(`Groq ${path} returned non-JSON (first 120 chars redacted-safe).`),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe(`Cloudflare Workers AI ${what} returned non-JSON (first 120 chars redacted-safe).`),
         { status: res.status, retryable: false },
       );
     }
+  }
+
+  /**
+   * Unwrap a Cloudflare API envelope `{ success, errors, result }`. Throws a
+   * typed error when `success === false`. When `expectResult` is true, a
+   * missing/non-array `result` is a BAD_RESPONSE.
+   */
+  private parseEnvelope(body: unknown, what: string, status: number, expectResult = true): unknown[] {
+    if (!isPlainObject(body)) {
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe(`Cloudflare Workers AI ${what} returned a non-object body.`),
+        { status, retryable: false },
+      );
+    }
+    if (body.success === false) {
+      const errors = Array.isArray(body.errors) ? body.errors : [];
+      const first = errors.find(isPlainObject);
+      const message =
+        first && typeof first.message === 'string' ? first.message : 'unknown error';
+      throw new ProviderError(
+        ProviderErrorCode.BAD_REQUEST,
+        this.safe(`Cloudflare Workers AI ${what} failed: ${message}`),
+        { status, retryable: false },
+      );
+    }
+    const result = body.result;
+    if (expectResult && !Array.isArray(result)) {
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe(`Cloudflare Workers AI ${what} returned no result array.`),
+        { status, retryable: false },
+      );
+    }
+    return Array.isArray(result) ? result : [];
   }
 
   private parseCompletion(
@@ -369,17 +489,17 @@ export class GroqClient {
     status: number,
   ): Omit<ChatCompletionsResult, 'latencyMs'> {
     if (!isPlainObject(json) || !Array.isArray(json.choices) || json.choices.length === 0) {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe('Groq /chat/completions returned no choices.'),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe('Cloudflare Workers AI chat completions returned no choices.'),
         { status, retryable: false },
       );
     }
     const choice = json.choices[0] as unknown;
     if (!isPlainObject(choice) || !isPlainObject(choice.message)) {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe('Groq /chat/completions returned a choice without a message object.'),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe('Cloudflare Workers AI chat completions returned a choice without a message object.'),
         { status, retryable: false },
       );
     }
@@ -392,9 +512,9 @@ export class GroqClient {
     const rawCalls = message.tool_calls;
     if (rawCalls !== undefined && rawCalls !== null) {
       if (!Array.isArray(rawCalls)) {
-        throw new GroqError(
-          GroqErrorCode.BAD_RESPONSE,
-          this.safe('Groq returned tool_calls that is not an array.'),
+        throw new ProviderError(
+          ProviderErrorCode.BAD_RESPONSE,
+          this.safe('Cloudflare Workers AI returned tool_calls that is not an array.'),
           { status, retryable: false },
         );
       }
@@ -415,9 +535,9 @@ export class GroqClient {
 
   private parseToolCall(raw: unknown, status: number): ToolCall {
     if (!isPlainObject(raw)) {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe('Groq returned a tool call that is not an object.'),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe('Cloudflare Workers AI returned a tool call that is not an object.'),
         { status, retryable: false },
       );
     }
@@ -426,9 +546,9 @@ export class GroqClient {
     const name = fn && typeof fn.name === 'string' && fn.name.length > 0 ? fn.name : null;
     if (!id || !name) {
       // Never invent an id or name — a malformed call is a typed error.
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe('Groq returned a tool call missing id or function.name.'),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe('Cloudflare Workers AI returned a tool call missing id or function.name.'),
         { status, retryable: false },
       );
     }
@@ -444,9 +564,9 @@ export class GroqClient {
       } catch {
         // Malformed arguments are NEVER silently coerced (AGENT JOB lesson:
         // string-typed arguments once killed tool-calling tasks).
-        throw new GroqError(
-          GroqErrorCode.BAD_RESPONSE,
-          this.safe(`Groq tool call "${name}" returned malformed (non-JSON) arguments.`),
+        throw new ProviderError(
+          ProviderErrorCode.BAD_RESPONSE,
+          this.safe(`Cloudflare Workers AI tool call "${name}" returned malformed (non-JSON) arguments.`),
           { status, retryable: false },
         );
       }
@@ -455,9 +575,9 @@ export class GroqClient {
     } else if (argsRaw === undefined || argsRaw === null || argsRaw === '') {
       args = {};
     } else {
-      throw new GroqError(
-        GroqErrorCode.BAD_RESPONSE,
-        this.safe(`Groq tool call "${name}" returned arguments of unexpected type.`),
+      throw new ProviderError(
+        ProviderErrorCode.BAD_RESPONSE,
+        this.safe(`Cloudflare Workers AI tool call "${name}" returned arguments of unexpected type.`),
         { status, retryable: false },
       );
     }

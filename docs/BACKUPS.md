@@ -1,7 +1,7 @@
 # Backups & restore — GameForge AI Studio
 
 **Scope:** Postgres + Redis RDB + the `STORAGE_ROOT` tree (project git repos,
-content-addressed blobs, artifacts). Groq keys and the vault are **not** backed
+content-addressed blobs, artifacts). Cloudflare tokens and the vault are **not** backed
 up by these scripts — they live in `infra/deploy/.env` (0600), which the
 operator backs up separately and never commits.
 

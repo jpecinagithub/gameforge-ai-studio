@@ -112,7 +112,7 @@ describe('image allowlist', () => {
 describe('sanitizeEnv', () => {
   it('strips credential-shaped keys even when passed explicitly', () => {
     const { env, dropped } = sanitizeEnv({
-      GROQ_API_KEY: 'gsk_testsecret123',
+      CLOUDFLARE_API_TOKEN: 'gsk_testsecret123',
       MY_TOKEN: 'abc',
       db_PASSWORD: 'hunter2',
       PATH: '/usr/bin',
@@ -121,7 +121,7 @@ describe('sanitizeEnv', () => {
     });
     expect(env).toEqual({ PATH: '/usr/bin', GF_JOB: '1' });
     expect(dropped).toEqual(
-      expect.arrayContaining(['GROQ_API_KEY', 'MY_TOKEN', 'db_PASSWORD', 'OTHER']),
+      expect.arrayContaining(['CLOUDFLARE_API_TOKEN', 'MY_TOKEN', 'db_PASSWORD', 'OTHER']),
     );
   });
 
@@ -168,7 +168,7 @@ describe('runJob argv hardening', () => {
     }) as SpawnFn;
 
     const result = await runJob(
-      baseSpec({ env: { GF_JOB: '1', GROQ_API_KEY: 'gsk_testsecret123' } }),
+      baseSpec({ env: { GF_JOB: '1', CLOUDFLARE_API_TOKEN: 'gsk_testsecret123' } }),
       { spawnFn, execFileFn: successExecFile() as never, workRoot, logRoot },
     );
 

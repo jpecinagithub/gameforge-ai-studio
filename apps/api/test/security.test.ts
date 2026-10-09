@@ -308,13 +308,13 @@ describe('body limits', () => {
   it('never leaks stack traces or env on 500s', async () => {
     const s = await makeServer();
     s.get('/__boom', async () => {
-      throw new Error('kaboom: GROQ_API_KEY=gsk_secret_12345');
+      throw new Error('kaboom: CLOUDFLARE_API_TOKEN=cfut_test_secret_999');
     });
     const res = await s.inject({ method: 'GET', url: '/__boom' });
     expect(res.statusCode).toBe(500);
     const body = res.body;
     expect(body).not.toContain('kaboom');
-    expect(body).not.toContain('gsk_secret_12345');
+    expect(body).not.toContain('cfut_test_secret_999');
     expect(JSON.parse(body).error.code).toBe('internal_error');
   });
 });

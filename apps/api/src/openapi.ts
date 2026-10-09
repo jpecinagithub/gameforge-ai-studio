@@ -20,7 +20,7 @@ export async function registerOpenApi(fastify: FastifyInstance): Promise<void> {
         { name: 'runs', description: 'Agent run orchestration' },
         { name: 'builds', description: 'Build jobs' },
         { name: 'assets', description: 'Asset inventory (Phase 5+)' },
-        { name: 'models', description: 'Groq model registry' },
+        { name: 'models', description: 'Cloudflare Workers AI model registry' },
         { name: 'plugins', description: 'Plugin registry (Phase 6+)' },
         { name: 'settings', description: 'Application settings' },
         { name: 'memory', description: 'Agent memory (Phase 4+)' },

@@ -1,5 +1,5 @@
 /**
- * Orchestrator tests (Phase 4) — scripted Groq, real temp git repos.
+ * Orchestrator tests (Phase 4) — scripted provider, real temp git repos.
  *
  * - dispatchTask tool: no dispatcher → typed failure; bad role → validation
  *   error; delegates when a dispatcher is present.
@@ -22,7 +22,7 @@ import {
 import {
   BudgetTracker,
   type ChatCompletionsResult,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
   type ToolCall,
 } from '@gameforge/model-providers';
@@ -42,18 +42,18 @@ import type { DbLike, QueuesLike } from '../src/jobIntegration.js';
 
 const SHA = 'd'.repeat(40);
 
-/* ---------- scripted groq ---------- */
+/* ---------- scripted provider ---------- */
 
 type ScriptStep =
   | { kind: 'tools'; calls: Array<{ name: string; args: Record<string, unknown> }>; text?: string }
   | { kind: 'text'; text: string };
 
-function scriptedGroq(steps: ScriptStep[]): GroqClient {
+function scriptedProvider(steps: ScriptStep[]): CloudflareClient {
   const queue = [...steps];
   return {
     chatCompletions: vi.fn(async () => {
       const next = queue.shift();
-      if (!next) throw new Error('groq script exhausted — unexpected extra model call');
+      if (!next) throw new Error('provider script exhausted — unexpected extra model call');
       const toolCalls: ToolCall[] =
         next.kind === 'tools'
           ? next.calls.map((c, i) => ({ id: `call_${i}`, name: c.name, arguments: c.args }))
@@ -67,7 +67,7 @@ function scriptedGroq(steps: ScriptStep[]): GroqClient {
       };
       return res;
     }),
-  } as unknown as GroqClient;
+  } as unknown as CloudflareClient;
 }
 
 const tools = (...calls: Array<{ name: string; args: Record<string, unknown> }>): ScriptStep => ({
@@ -102,7 +102,7 @@ function makeMemory(): MemoryStore {
 async function makeHarness(verdicts: BuildStatus[]): Promise<{
   h: Harness;
   opts: Parameters<typeof runMultiAgentJob>[0];
-  groqRef: { groq: GroqClient | null };
+  providerRef: { provider: CloudflareClient | null };
 }> {
   const h: Harness = {
     workDir: await fs.mkdtemp(path.join(os.tmpdir(), 'gf-orch-')),
@@ -123,7 +123,7 @@ async function makeHarness(verdicts: BuildStatus[]): Promise<{
       status: h.verdicts[Math.min(buildN, h.verdicts.length) - 1] ?? BuildStatus.FAILED,
     }),
   };
-  const groqRef: { groq: GroqClient | null } = { groq: null };
+  const providerRef: { provider: CloudflareClient | null } = { provider: null };
   const opts = {
     runId: 'run_orch_test',
     projectId: 'proj_orch_test',
@@ -131,7 +131,7 @@ async function makeHarness(verdicts: BuildStatus[]): Promise<{
     queues,
     workDir: h.workDir,
     userRequest: 'Build a tiny game.',
-    groq: undefined as unknown as GroqClient, // set per-test via groqRef
+    provider: undefined as unknown as CloudflareClient, // set per-test via providerRef
     registry,
     evidence: {
       gather: async (buildId: string) => ({
@@ -156,14 +156,14 @@ async function makeHarness(verdicts: BuildStatus[]): Promise<{
     buildPollIntervalMs: 1,
     buildTimeoutMs: 5000,
   };
-  return { h, opts, groqRef };
+  return { h, opts, providerRef };
 }
 
-function withGroq<T extends { groq: GroqClient }>(
+function withProvider<T extends { provider: CloudflareClient }>(
   base: T,
-  groq: GroqClient,
-): T & { groq: GroqClient } {
-  return { ...base, groq };
+  provider: CloudflareClient,
+): T & { provider: CloudflareClient } {
+  return { ...base, provider };
 }
 
 /* ---------- tests ---------- */
@@ -247,14 +247,14 @@ describe('runMultiAgentJob', () => {
     // Director dispatches a reviewer task whose script tries writeFile.
     // Queue order matters: director(1) → reviewer(2,3) → director(4).
     const { h, opts } = await makeHarness([BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       tools({ name: 'dispatchTask', args: { role: 'reviewer', objective: 'review the game' } }),
       // reviewer turn: tries writeFile (denied), then finishRun
       tools({ name: 'writeFile', args: { path: 'evil.txt', content: 'x' } }),
       finish('reviewer done'),
       finish('director done'),
     ]);
-    const res = await runMultiAgentJob(withGroq(opts, groq));
+    const res = await runMultiAgentJob(withProvider(opts, provider));
     expect(res.buildStatus).toBe(BuildStatus.VERIFIED);
     // The write was denied: no file anywhere.
     await expect(fs.stat(path.join(h.workDir, 'evil.txt'))).rejects.toThrow();
@@ -266,13 +266,13 @@ describe('runMultiAgentJob', () => {
 
   it('gameplay writeFile in a worktree merges into the main checkout', async () => {
     const { h, opts } = await makeHarness([BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       tools({ name: 'dispatchTask', args: { role: 'gameplay', objective: 'add feature file' } }),
       finish('director done'),
       tools({ name: 'writeFile', args: { path: 'feat.txt', content: 'hello\n' } }),
       finish('gameplay done'),
     ]);
-    await runMultiAgentJob(withGroq(opts, groq));
+    await runMultiAgentJob(withProvider(opts, provider));
     // Merged into the main checkout.
     expect(await fs.readFile(path.join(h.workDir, 'feat.txt'), 'utf8')).toBe('hello\n');
     // No leftover worktree checkouts.
@@ -283,7 +283,7 @@ describe('runMultiAgentJob', () => {
 
   it('dependency gate: unmet dependsOn fails typed; met deps run', async () => {
     const { opts } = await makeHarness([BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       tools(
         { name: 'dispatchTask', args: { role: 'gameplay', objective: 'task A' } },
         // dependsOn a task that was never dispatched → DEPENDENCY_FAILED
@@ -292,7 +292,7 @@ describe('runMultiAgentJob', () => {
       finish('director done'),
       finish('A done'),
     ]);
-    await runMultiAgentJob(withGroq(opts, groq));
+    await runMultiAgentJob(withProvider(opts, provider));
     const tasks = await opts.taskStore.list('run_orch_test');
     const a = tasks.find((t) => t.objective === 'task A');
     expect(a?.status).toBe('completed');
@@ -307,7 +307,7 @@ describe('runMultiAgentJob', () => {
       BuildStatus.VERIFIED,
       BuildStatus.VERIFIED,
     ]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       finish('director done'), // no initial tasks
       // fix #1
       finish('fix1 done'),
@@ -323,13 +323,13 @@ describe('runMultiAgentJob', () => {
       text('{"pick": "B", "biggestGap": "gap three", "notes": "n"}'),
     ]);
     const res = await runMultiAgentJob(
-      withGroq(
+      withProvider(
         {
           ...opts,
           incumbentBuildId: 'build_inc',
           maxCorrectionRounds: 3,
         },
-        groq,
+        provider,
       ),
     );
     expect(res.buildStatus).toBe(BuildStatus.VERIFIED);
@@ -344,13 +344,13 @@ describe('runMultiAgentJob', () => {
 
   it('correction stops early when the review flips to the candidate', async () => {
     const { opts } = await makeHarness([BuildStatus.FAILED, BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       finish('director done'),
       finish('fix1 done'),
       text('{"pick": "A", "biggestGap": "none remaining", "notes": "candidate wins"}'),
     ]);
     const res = await runMultiAgentJob(
-      withGroq({ ...opts, incumbentBuildId: 'build_inc' }, groq),
+      withProvider({ ...opts, incumbentBuildId: 'build_inc' }, provider),
     );
     expect(res.buildStatus).toBe(BuildStatus.VERIFIED);
     expect(res.reviews).toHaveLength(1);
@@ -361,7 +361,7 @@ describe('runMultiAgentJob', () => {
 
   it('loop mode stops with NO_MEASURABLE_PROGRESS when verdicts stall', async () => {
     const { opts } = await makeHarness([BuildStatus.VERIFIED, BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       finish('director done'),
       // improvement turn: dispatch one task, then finish
       tools({ name: 'dispatchTask', args: { role: 'gameplay', objective: 'polish' } }),
@@ -369,7 +369,7 @@ describe('runMultiAgentJob', () => {
       finish('polish done'),
     ]);
     const res = await runMultiAgentJob(
-      withGroq({ ...opts, runMode: 'loop', maxLoopIterations: 5 }, groq),
+      withProvider({ ...opts, runMode: 'loop', maxLoopIterations: 5 }, provider),
     );
     expect(res.stopCode).toBe(StopCode.NO_MEASURABLE_PROGRESS);
     expect(res.loopIterations).toBe(2);
@@ -378,17 +378,17 @@ describe('runMultiAgentJob', () => {
 
   it('manual mode pauses at the approval gate (PauseForUser)', async () => {
     const { opts } = await makeHarness([BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([finish('director done')]);
+    const provider = scriptedProvider([finish('director done')]);
     const err = await runMultiAgentJob(
-      withGroq({ ...opts, runMode: 'manual' }, groq),
+      withProvider({ ...opts, runMode: 'manual' }, provider),
     ).catch((e) => e);
     expect(isPauseForUser(err)).toBe(true);
   });
 
   it('skips blind review without an incumbent (note in summary)', async () => {
     const { opts } = await makeHarness([BuildStatus.VERIFIED]);
-    const groq = scriptedGroq([finish('director done')]);
-    const res = await runMultiAgentJob(withGroq(opts, groq));
+    const provider = scriptedProvider([finish('director done')]);
+    const res = await runMultiAgentJob(withProvider(opts, provider));
     expect(res.reviews).toHaveLength(0);
     expect(res.buildStatus).toBe(BuildStatus.VERIFIED);
   });

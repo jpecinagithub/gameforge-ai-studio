@@ -40,7 +40,7 @@ import '../types.js';
 
 const ACTOR_HEADER = 'x-studio-actor';
 const SECRET_LIKE = /key|token|secret|password|passwd|credential|dsn/i;
-const SECRET_VALUE = /^(gsk_|sk-|-----BEGIN)/;
+const SECRET_VALUE = /^(sk-|-----BEGIN)/;
 
 const forbidden = (message: string, detail?: Record<string, unknown>) =>
   new HttpError(403, ApiErrorCode.FORBIDDEN, message, detail);

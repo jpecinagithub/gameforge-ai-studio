@@ -16,7 +16,7 @@ import { appendEvent } from './events.js';
 import { createPgBuildStore } from './buildStore.js';
 import { createBrowser } from './browser.js';
 import {
-  GroqClient,
+  CloudflareClient,
   ModelRegistry,
   computeCost,
 } from '@gameforge/model-providers';
@@ -44,11 +44,11 @@ export interface BuildProcessorDeps {
   log: (msg: string, fields?: Record<string, unknown>) => void;
   storageRoot: string;
   /**
-   * LLM wiring for the semantic visual review phase. Null when GROQ_API_KEY
+   * LLM wiring for the semantic visual review phase. Null when Cloudflare credentials
    * is not configured — the phase then skips honestly (review labeled
    * unverified) and deterministic checks continue.
    */
-  groq?: GroqClient | null;
+  provider?: CloudflareClient | null;
   registry?: ModelRegistry | null;
 }
 
@@ -135,13 +135,13 @@ export async function processBuild(
   const projectDir = path.join(storageRoot, 'projects', projectId, 'repo');
   const store = createPgBuildStore(pool, storageRoot);
 
-  // Semantic visual review deps: only when a live Groq binding exists.
+  // Semantic visual review deps: only when a live provider binding exists.
   // Every LLM completion is recorded in model_usage (§7 cost accounting).
   const vision: VisualReviewDeps | undefined =
-    deps.groq && deps.registry
+    deps.provider && deps.registry
       ? {
           registry: deps.registry,
-          client: deps.groq,
+          client: deps.provider,
           role: 'vision',
           onUsage: async (u) => {
             await pool.query(

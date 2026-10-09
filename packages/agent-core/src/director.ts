@@ -1,10 +1,10 @@
 /**
- * Director turn: one Groq tool-calling session driving the tool loop.
+ * Director turn: one provider tool-calling session driving the tool loop.
  *
  * Adapted from the Genex director/wake pattern (REFERENCE_ANALYSIS.md F2):
  * the director makes decisions through tools; each wake rehydrates state from
  * the run journal (the worker owns that — here we run ONE turn of up to
- * maxRounds tool-call rounds). Groq has no sessions, so all state the model
+ * maxRounds tool-call rounds). Workers AI has no sessions, so all state the model
  * needs travels in `messages`.
  *
  * Control flow:
@@ -17,7 +17,7 @@ import { StopCode } from '@gameforge/shared';
 import {
   computeCost,
   BudgetTracker,
-  GroqClient,
+  CloudflareClient,
   ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -30,8 +30,8 @@ import {
   executeToolCall,
   executeToolCallWith,
   isFinishResult,
-  toGroqTools,
-  toGroqToolsFor,
+  toProviderTools,
+  toProviderToolsFor,
   toolDefsForRole,
   TOOLS,
   type AnyToolDef,
@@ -44,7 +44,7 @@ export interface DirectorTurnOptions {
   runId: string;
   workDir: string;
   ctx: ToolContext;
-  groq: GroqClient;
+  provider: CloudflareClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   /** The user's natural-language request (and any follow-up). */
@@ -89,7 +89,7 @@ export async function runAgentTurn(
 ): Promise<DirectorTurnResult> {
   const {
     ctx,
-    groq,
+    provider,
     registry,
     budgets,
     systemPrompt,
@@ -124,14 +124,14 @@ export async function runAgentTurn(
     }
     budgets.checkTime();
 
-    const res = await groq.chatCompletions({
+    const res = await provider.chatCompletions({
       model,
       messages,
-      tools: toGroqToolsFor(toolDefs),
+      tools: toProviderToolsFor(toolDefs),
       toolChoice: 'auto',
     });
 
-    // Token accounting is load-bearing (Groq is always metered).
+    // Token accounting is load-bearing (Workers AI is always metered).
     const costUsd = computeCost(model, res.usage.inputTokens, res.usage.outputTokens);
     budgets.recordUsage({
       inputTokens: res.usage.inputTokens,

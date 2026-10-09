@@ -5,7 +5,7 @@
  * HONESTY CONTRACT (hard rule):
  * - A review row is marked `pass`/`fail` ONLY when a live vision-capable
  *   model actually examined the screenshots in this run.
- * - In every other case (no Groq key, no vision model in the registry, probe
+ * - In every other case (no AI provider credentials, no vision model in the registry, probe
  *   failed, model returned garbage) the review is marked `unverified` with an
  *   explicit `issue` naming the reason, and deterministic checks continue.
  * - `verifyVisionModel()` is the ONLY path that produces a verified model
@@ -14,7 +14,7 @@
  */
 import { z } from 'zod';
 import type { ReviewResultValue } from '@gameforge/shared';
-import type { GroqClient } from '@gameforge/model-providers';
+import type { CloudflareClient } from '@gameforge/model-providers';
 import { ModelRegistry, probeVisionSupport } from '@gameforge/model-providers';
 
 /** One screenshot available to the reviewer. */
@@ -37,7 +37,7 @@ export interface VisionModelVerification {
 
 export interface VisualReviewDeps {
   registry: ModelRegistry;
-  client: GroqClient;
+  client: CloudflareClient;
   /** Agent-role label used for model selection + usage accounting. */
   role?: string;
   /** Max screenshots sent to the model (cost control). Default 4. */

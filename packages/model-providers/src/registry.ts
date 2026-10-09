@@ -1,18 +1,20 @@
 /**
- * Live Groq model capability registry (master prompt §2, ARCHITECTURE.md §7).
+ * Live Cloudflare Workers AI model capability registry (ARCHITECTURE.md §7).
  *
- * - `refresh(client)` probes `GET /v1/models` at startup / on demand and upserts
- *   entries. Models that disappear are marked active=false — never deleted, so
- *   historical model_usage rows keep their meaning.
- * - Capability data comes from a DATE-STAMPED curated table. This table is DATA,
- *   not selection logic: `selectModel()` never names a model, it filters on
- *   capabilities. The table must be re-verified against Groq docs periodically.
+ * - `refresh(client)` discovers `GET /accounts/{account_id}/ai/models/search`
+ *   at startup / on demand and upserts entries. Models that disappear are
+ *   marked active=false — never deleted, so historical model_usage rows keep
+ *   their meaning.
+ * - Capability data comes from a DATE-STAMPED curated table. This table is
+ *   DATA, not selection logic: `selectModel()` never names a model, it filters
+ *   on capabilities. The table must be re-verified against Cloudflare docs
+ *   periodically — every row is a hypothesis until a live probe verifies it.
  * - Models absent from the curated table get CONSERVATIVE defaults
  *   (no tools, no vision) unless a best-effort probe verifies otherwise.
- *   Probing costs tokens and is opt-in only — refresh() never probes.
+ *   Probing costs neurons and is opt-in only — refresh() never probes.
  */
 import { modelCapabilitiesSchema } from '@gameforge/shared';
-import type { GroqClient } from './groq.js';
+import type { CloudflareClient } from './cloudflare.js';
 import { ModelUnavailableError } from './errors.js';
 
 export interface ModelCapabilities {
@@ -32,47 +34,56 @@ export interface RegistryEntry {
 }
 
 /**
- * Curated capability data. DATE-STAMPED: curated 2026-10-09 from Groq docs and
- * a live /v1/models probe. MUST be re-verified — Groq retires and renames
- * models (e.g. llama-3.3-70b-versatile was retired 2026-08-16 per AGENT JOB ops
- * notes). Treat every row as a hypothesis until refresh() confirms the model
- * still exists; capability flags remain curated estimates.
+ * Curated capability data. DATE-STAMPED: curated 2026-10-09 from the
+ * Cloudflare Workers AI model catalog. MUST be re-verified — Cloudflare
+ * ships and retires models regularly. Treat every row as a hypothesis until
+ * refresh() confirms the model still exists; capability flags remain curated
+ * estimates (a live probe is the only verification).
+ *
+ * Model slugs are the callable `@cf/...` names from the catalog (never the
+ * internal UUIDs).
  */
 export const CURATED_CAPABILITIES_AS_OF = '2026-10-09';
 
 const CURATED: Record<string, ModelCapabilities> = {
-  'openai/gpt-oss-120b': {
+  '@cf/meta/llama-3.1-8b-instruct': {
     context_window: 131072,
     supports_tools: true,
     supports_vision: false,
     supports_json_mode: true,
   },
-  'openai/gpt-oss-20b': {
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast': {
     context_window: 131072,
     supports_tools: true,
     supports_vision: false,
     supports_json_mode: true,
   },
-  'llama-3.3-70b-versatile': {
+  '@cf/openai/gpt-oss-120b': {
     context_window: 131072,
     supports_tools: true,
     supports_vision: false,
     supports_json_mode: true,
   },
-  'meta-llama/llama-4-scout-17b-16e-instruct': {
+  '@cf/openai/gpt-oss-20b': {
     context_window: 131072,
     supports_tools: true,
+    supports_vision: false,
+    supports_json_mode: true,
+  },
+  '@cf/meta/llama-3.2-11b-vision-instruct': {
+    context_window: 131072,
+    supports_tools: false,
     supports_vision: true,
     supports_json_mode: true,
   },
-  'meta-llama/llama-4-maverick-17b-128e-instruct': {
+  '@cf/mistralai/mistral-small-3.1-24b-instruct': {
     context_window: 131072,
     supports_tools: true,
-    supports_vision: true,
+    supports_vision: false,
     supports_json_mode: true,
   },
-  'qwen/qwen3-32b': {
-    context_window: 131072,
+  '@cf/qwen/qwen2.5-coder-32b-instruct': {
+    context_window: 32768,
     supports_tools: true,
     supports_vision: false,
     supports_json_mode: true,
@@ -116,8 +127,8 @@ export interface RefreshReport {
 export class ModelRegistry {
   private readonly entries = new Map<string, RegistryEntry>();
 
-  /** Refresh from Groq's live model list. Never probes (probing costs tokens). */
-  async refresh(client: GroqClient): Promise<RefreshReport> {
+  /** Refresh from the account's live model catalog. Never probes (probing costs neurons). */
+  async refresh(client: CloudflareClient): Promise<RefreshReport> {
     const now = new Date().toISOString();
     const live = await client.listModels();
     const seen = new Set(live);
@@ -181,7 +192,7 @@ export class ModelRegistry {
         throw new ModelUnavailableError(
           capabilityName,
           `Role "${opts.role}" requires ${capabilityName}, but none of the ` +
-            `${active.length} active Groq model(s) advertise it. ` +
+            `${active.length} active model(s) advertise it. ` +
             `Refresh the registry or configure a compatible model.`,
         );
       }
@@ -193,7 +204,7 @@ export class ModelRegistry {
       throw new ModelUnavailableError(
         'any-model',
         `Role "${opts.role}" needs a model but the registry is empty. ` +
-          `Call refresh() against Groq first.`,
+          `Call refresh() against Cloudflare first.`,
       );
     }
     // Intersect capability filters; each names its own missing capability.
@@ -233,13 +244,13 @@ export class ModelRegistry {
 
 /**
  * Best-effort vision-support probe: sends a 1x1 PNG and asks for one word back.
- * COSTS TOKENS — opt-in only, never called by refresh(). A `true` result is
+ * COSTS NEURONS — opt-in only, never called by refresh(). A `true` result is
  * evidence that the model accepted and described an image; a `false`/error
  * result is inconclusive (the model may have declined or errored), never
  * proof of absence. Only a `true` result may label a review "verified".
  */
 export async function probeVisionSupport(
-  client: GroqClient,
+  client: CloudflareClient,
   modelId: string,
   opts?: { maxTokens?: number },
 ): Promise<boolean> {
@@ -269,12 +280,12 @@ const ONE_PX_PNG_DATA_URL =
 
 /**
  * Best-effort tool-support probe: asks the model to make a trivial tool call.
- * COSTS TOKENS — opt-in only, never called by refresh(). A `true` result is
+ * COSTS NEURONS — opt-in only, never called by refresh(). A `true` result is
  * evidence; a `false`/error result is inconclusive (the model may just have
  * declined), never proof of absence.
  */
 export async function probeToolSupport(
-  client: GroqClient,
+  client: CloudflareClient,
   modelId: string,
 ): Promise<boolean> {
   try {

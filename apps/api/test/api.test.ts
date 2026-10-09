@@ -121,7 +121,8 @@ async function makeServer(opts?: {
 afterEach(async () => {
   await server?.close();
   server = null;
-  delete process.env.GROQ_API_KEY;
+  delete process.env.CLOUDFLARE_API_TOKEN;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
 });
 
 /* ------------------------------------------------------------------ */
@@ -330,14 +331,15 @@ describe('settings', () => {
 
 describe('models connection-test', () => {
   const providers: ModelProviders = {
-    createGroqClient: () => ({
-      listModels: async () => ({ models: [{ id: 'm1' }, { id: 'm2' }, { id: 'm3' }] }),
+    createCloudflareClient: () => ({
+      listModels: async () => ['m1', 'm2', 'm3'],
       probeToolSupport: async (modelId: string) => modelId === 'director-model',
     }),
   };
 
   beforeEach(() => {
-    process.env.GROQ_API_KEY = 'gsk_testkey_1234567890abcdef';
+    process.env.CLOUDFLARE_API_TOKEN = 'test-token';
+    process.env.CLOUDFLARE_ACCOUNT_ID = 'test-account';
   });
 
   function settingsDb(director: string | null) {
@@ -352,8 +354,8 @@ describe('models connection-test', () => {
   it('without probeTools: lists models only, zero token cost, toolProbe null', async () => {
     let probed = 0;
     const counting: ModelProviders = {
-      createGroqClient: () => ({
-        listModels: async () => ({ models: [{ id: 'm1' }] }),
+      createCloudflareClient: () => ({
+        listModels: async () => ['m1'],
         probeToolSupport: async () => {
           probed += 1;
           return true;
@@ -365,7 +367,7 @@ describe('models connection-test', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true, modelCount: 1, toolProbe: null });
     expect(probed).toBe(0);
-    expect(JSON.stringify(res.json())).not.toContain('gsk_testkey');
+    expect(JSON.stringify(res.json())).not.toContain('test-token');
   });
 
   it('with probeTools=true: probes the director model', async () => {
@@ -386,8 +388,9 @@ describe('models connection-test', () => {
     expect(res.json().toolProbe).toBeNull();
   });
 
-  it('without GROQ_API_KEY: 400 and no key material anywhere', async () => {
-    delete process.env.GROQ_API_KEY;
+  it('without Cloudflare credentials: 400 and no credential material anywhere', async () => {
+    delete process.env.CLOUDFLARE_API_TOKEN;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
     const { server } = await makeServer({ modelProviders: providers });
     const res = await server.inject({ method: 'POST', url: '/api/v1/models/connection-test' });
     expect(res.statusCode).toBe(400);

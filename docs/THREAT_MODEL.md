@@ -22,11 +22,11 @@ accepted, not solved.
 
 | # | Asset | Why it matters | Worst-case impact |
 |---|---|---|---|
-| A1 | **Groq API key** | Billed by the token; the single credential that turns the app into a spending device | Key theft → attacker burns the user's Groq quota/budget; prompt data exposed to attacker |
+| A1 | **Cloudflare API token** | Billed in neurons; the single credential that turns the app into a spending device | Key theft → attacker burns the user's Workers AI quota/budget; prompt data exposed to attacker |
 | A2 | **User's game source + project history** | The user's actual work product (git repos under backend storage) | Theft, tampering, or silent corruption; loss of IP |
 | A3 | **Agent run state & Studio Memory** (Postgres) | Contains prompts, design decisions, failed approaches, conversation content | Data breach of user ideas/text; poisoned memory degrading future runs |
 | A4 | **Server host** (Oracle Linux) + sibling services | Co-tenants of the same machine (Postgres, Redis, vault, SSH, Docker) | Full host compromise = everything above + pivot to the user's Oracle account |
-| A5 | **Groq budget / wallet** | Usage is pay-per-token; an agent loop can spend unboundedly | Runaway agent = real money loss |
+| A5 | **Cloudflare Workers AI budget** | Usage is metered in neurons (10k free/day); an agent loop can spend unboundedly | Runaway agent = real money loss |
 | A6 | **Browser session integrity** (Vercel frontend, SSE streams) | Where the user observes and approves agent work | UI spoofing / confused-origin = attacker triggers state-changing API actions |
 | A7 | **Build artifacts & exports** | Downloaded by the user; may embed secrets if scanned poorly | Secret leakage into ZIP files |
 | A8 | **Plugin code** (user-trusted, not system-trusted) | Runs with elevated capability relative to generated code | Malicious/buggy plugin escapes its sandbox → host |
@@ -39,14 +39,14 @@ Adapted from Genex's zone table (REFERENCE_ANALYSIS.md §F12; GENEX_DESKTOP_NOTE
 | Zone | Trust | Description | May NOT touch |
 |---|---|---|---|
 | **User's browser (studio UI)** | **Untrusted** | React SPA on Vercel. Render-only: no secrets, no direct DB/queue access; all calls go through the typed `/api/v1` REST/SSE surface. | Secrets (never rendered), Postgres, Redis, runner containers, vault |
-| **Vercel edge / CDN** | Untrusted hosting surface | Static assets + SPA shell only. No server functions holding secrets; the backend URL is a public env var (that is fine — it is an address, not a secret). | Backend secrets, Groq key |
+| **Vercel edge / CDN** | Untrusted hosting surface | Static assets + SPA shell only. No server functions holding secrets; the backend URL is a public env var (that is fine — it is an address, not a secret). | Backend secrets, Cloudflare token |
 | **Reverse proxy (TLS termination)** | Trusted infra | nginx/traefik on the Oracle host. TLS, rate limits, IP allowlist, mTLS/basic-auth when the access boundary requires it. | Application secrets (passes through only) |
 | **Fastify API process** | Trusted | REST + SSE, zod-validated, typed routes. Holds the run orchestrator. No generated code runs here. | Untrusted content only enters through validated parsers |
 | **BullMQ worker processes** | Trusted, but agent-controlled | Executes planner/builder/judge logic; issues tool calls. Isolated from the API process (separate process/container). The LLM's instructions arrive as *data*; tools are validated structured calls — the worker must never hand an unquoted LLM string to a shell. | Raw shell with unvalidated args; direct Postgres writes outside the ORM/repository layer |
 | **Runner containers** (untrusted code execution) | **Untrusted by design** | Rootless, non-root user, no privileged containers, no Docker socket, read-only rootfs where practical, CPU/RAM/pid/timeout quotas, writable scratch only, restricted network, no Postgres/Redis/cloud-metadata access, per-run logs, auto cleanup. This is the **single execution gate** for: file edits, dependency installs, builds, tests, preview serving, Blender, plugin backends. | Host filesystem, secrets, sibling containers, internal service networks, internet (default deny) |
 | **Postgres** | Trusted data store | Durable state: projects, files metadata, revisions, conversations, runs, events, builds, assets, memories, audit events. | Never reachable from runner containers or the browser |
 | **Redis** | Trusted queue/messaging | BullMQ job payloads and SSE state. | Never reachable from runner containers or the browser |
-| **Server-side secret vault** | Trusted | Encrypted-at-rest store for GROQ_API_KEY and future provider keys. Filesystem dir with `0600` perms, readable only by API/worker OS users; **on the container deny-mount list** so no runner can read it. | Must never appear in logs, events, artifacts, exports, or API responses |
+| **Server-side secret vault** | Trusted | Encrypted-at-rest store for CLOUDFLARE_API_TOKEN and future provider keys. Filesystem dir with `0600` perms, readable only by API/worker OS users; **on the container deny-mount list** so no runner can read it. | Must never appear in logs, events, artifacts, exports, or API responses |
 | **Preview origin (game pages)** | **Untrusted web content** | Separate origin from the studio UI; sandboxed iframes, restrictive CSP; preview builds receive no API secrets and no backend access. Authoritative verification happens in server-side headless Chromium, not in this origin. | Studio origin, API endpoints (except the narrowly scoped `__studio` reporting channel), cookies |
 | **Plugin backends** | **User-trusted, system-untrusted** | Run in the same runner containers as untrusted code (this is *stronger* than Genex, which trusted plugin backends as native code — we deliberately do not follow that part). Capability-declared, ≤N allowed hosts, install/enable only by the user, never by an agent. | Anything outside their declared capabilities; the vault |
 
@@ -176,7 +176,7 @@ bytes with wrong content-type).
   never serve user bytes as `text/html` from a trusted origin.
 
 ### T6 — Secret exposure
-**Threat:** the Groq key (or future provider keys) leaks through: structured logs,
+**Threat:** the Cloudflare API token (or future provider keys) leaks through: structured logs,
 `agent_events` payloads, build logs/artifacts, exported ZIPs, error messages returned
 to the browser, SSE streams, plugin tool outputs, screenshots/OCR text.
 Severity: **High** (→ A1 → A5).
@@ -322,9 +322,9 @@ Severity: **Medium**.
   refuse without env), full procedure + restore drill in `docs/BACKUPS.md`.
   Executing the drill needs the live stack.
 
-### T14 — AI provider (Groq) side handling of prompts
+### T14 — AI provider (Cloudflare Workers AI) side handling of prompts
 **Threat:** prompts contain the user's game ideas, pasted secrets, code — all sent to
-Groq's API. Groq-side logging/retention/training policies are outside our control.
+Cloudflare's Workers AI API. Cloudflare-side logging/retention/training policies are outside our control.
 Severity: **Medium** (→ confidentiality of A2/A3; listed as residual in §4).
 
 **Controls (partial):**
@@ -334,7 +334,7 @@ Severity: **Medium** (→ confidentiality of A2/A3; listed as residual in §4).
   the user's own ideas from a request to the model that needs them).
 - **[ARCH]** Token accounting + budget alerts make anomalous exfiltration-shaped usage
   visible (a sudden 10× token spike is an observable event in the diagnostics dashboard).
-- **[P7 — PENDING]** Vendor DPA/retention terms for Groq are **not yet reviewed
+- **[P7 — PENDING]** Vendor DPA/retention terms for Cloudflare are **not yet reviewed
   or recorded**. The first-run UI warning exists in the plan but the docs entry
   does not. Do not claim otherwise.
 
@@ -382,10 +382,10 @@ Documented honestly, Genex-style. These are accepted; listing them is the contro
 3. **Zero-days in the container runtime / kernel.** Containers reduce but do not
    eliminate escape risk; a kernel 0-day defeats every control in §3. We track base
    image and runtime updates as maintenance, not as a guarantee.
-4. **Groq-side data handling (T14).** Prompts, code, and any pasted secrets are
-   processed by Groq under Groq's terms. We minimize and account, but we cannot
+4. **Cloudflare-side data handling (T14).** Prompts, code, and any pasted secrets are
+   processed by Cloudflare under Cloudflare's terms. We minimize and account, but we cannot
    audit their infrastructure.
-5. **The user's own mistakes.** Pasting a secret into chat (it will be sent to Groq
+5. **The user's own mistakes.** Pasting a secret into chat (it will be sent to Cloudflare Workers AI
    and stored in conversation history — redaction covers *our* keys, not the user's
    pasted ones; the UI warns before first run), approving a malicious plugin, opening
    the API to the public internet (§5), or disabling the VPN.
@@ -423,12 +423,12 @@ Without the boundary, every one of these is unauthenticated remote:
 
 - `POST /projects/:id/runs` — **remote code execution as a service**: anyone on the
   internet can make the backend generate, build, and run arbitrary code in containers
-  (and burn the user's Groq budget doing it → A5 drained in hours).
+  (and burn the user's Cloudflare budget doing it → A5 drained in hours).
 - `POST /assets/generations`, plugin enable, project delete — integrity and
   availability destruction.
 - `GET /projects/:id/export` — exfiltration of the user's entire work product.
 - SSE streams — live observation of the user's activity and prompts.
-- Groq connectivity test + model registry — oracle for key validity; error messages
+- Provider connectivity test + model registry — oracle for token validity; error messages
   could leak key-presence information useful for follow-up attacks.
 
 **Bluntly: a publicly exposed GameForge backend is a free, anonymous, AI-driven
@@ -478,7 +478,7 @@ port "temporarily" and forgetting.
 |---|---|
 | 1. **Stop the bleeding** | `POST /runs/:id/cancel` for runaway runs; `docker compose stop worker runner` (or systemd equivalents) to halt all execution; revoke at the proxy (IP block) if abuse is remote. |
 | 2. **Preserve evidence** | `audit_events` and logs are append-only — copy them *before* any cleanup. Snapshot the project git repos (`git bundle`) before restoring. |
-| 3. **Rotate secrets** | Groq key: rotate in the Groq dashboard → update the vault → restart API/worker → run `POST /models/connection-test`. Vault encryption key: rotate via the documented re-encryption procedure, then re-verify redaction tests. Any secret that traversed chat: treat as compromised, rotate at the issuer. |
+| 3. **Rotate secrets** | Cloudflare token: rotate in the Cloudflare dashboard (My Profile → API Tokens) → update the vault → restart API/worker → run `POST /models/connection-test`. Vault encryption key: rotate via the documented re-encryption procedure, then re-verify redaction tests. Any secret that traversed chat: treat as compromised, rotate at the issuer. |
 | 4. **Assess scope** | Which projects/runs were active? Check `build_artifacts` and exports created during the window; run the export secret-scan retroactively on suspicious artifacts. |
 | 5. **Recover** | Restore from encrypted backup (reversible: pre-restore snapshot first); re-run the Phase 7 security test suite before re-enabling the runner; re-issue approval tickets (old single-use tickets are dead by design). |
 | 6. **Learn** | Write the incident up in `docs/` with the same honesty as §4; add a regression test; if an agent instruction contributed, route it through the SkillOpt gate (auto-apply stays off). |

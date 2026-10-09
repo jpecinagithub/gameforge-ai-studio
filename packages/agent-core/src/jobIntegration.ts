@@ -28,7 +28,7 @@ import type { ChatMessage } from '@gameforge/model-providers';
 import {
   BudgetTracker,
   type BudgetLimits,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
 } from '@gameforge/model-providers';
 import { runDirectorTurn } from './director.js';
@@ -70,7 +70,7 @@ export interface AgentJobOptions {
   queues: QueuesLike;
   workDir: string;
   userRequest: string;
-  groq: GroqClient;
+  provider: CloudflareClient;
   registry: ModelRegistry;
   budgets?: BudgetLimits;
   evidence: EvidenceProvider;
@@ -150,7 +150,7 @@ export async function runAgentJob(opts: AgentJobOptions): Promise<AgentJobResult
   // 2. Conversation context = lightweight project memory for the director.
   const history = await loadConversationContext(opts.db, opts.projectId);
 
-  // 3. Budgets (load-bearing: Groq is always metered).
+  // 3. Budgets (load-bearing: Workers AI is always metered).
   const budgets = new BudgetTracker(opts.budgets ?? {});
 
   // 4. Tool context wiring worker-owned services.
@@ -180,7 +180,7 @@ export async function runAgentJob(opts: AgentJobOptions): Promise<AgentJobResult
     runId: opts.runId,
     workDir: opts.workDir,
     ctx,
-    groq: opts.groq,
+    provider: opts.provider,
     registry: opts.registry,
     budgets,
     userRequest: opts.userRequest,

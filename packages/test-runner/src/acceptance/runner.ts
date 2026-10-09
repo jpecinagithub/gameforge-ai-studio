@@ -25,7 +25,7 @@ function detectEnvironment(): AcceptanceEnvironment {
     platform: `${process.platform}/${process.arch}`,
     chromium,
     docker,
-    groqKey: process.env.GROQ_API_KEY ? 'set' : 'unset',
+    providerCredentials: process.env.CLOUDFLARE_API_TOKEN && process.env.CLOUDFLARE_ACCOUNT_ID ? 'set' : 'unset',
   };
 }
 

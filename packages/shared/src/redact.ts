@@ -3,14 +3,16 @@
  * artifact or export (Genex's redaction-on-append, adapted).
  *
  * Two layers:
- * 1. Known values: exact strings registered at runtime (e.g. the Groq key from env,
- *    vault values). Replaced with `[REDACTED:<label>]`.
+ * 1. Known values: exact strings registered at runtime (e.g. the Cloudflare
+ *    API token from env, vault values). Replaced with `[REDACTED:<label>]`.
  * 2. Shape heuristics: credential-shaped patterns replaced with `[REDACTED:pattern]`.
- *    Heuristics are a backstop, never the primary mechanism.
+ *    Heuristics are a backstop, never the primary mechanism. Note: Cloudflare
+ *    API tokens have no documented stable prefix, so there is no
+ *    provider-specific token pattern — the registered exact value (layer 1)
+ *    and the generic KEY/TOKEN/SECRET assignment patterns do the work.
  */
 
 const PATTERNS: Array<{ name: string; re: RegExp }> = [
-  { name: 'groq-key', re: /gsk_[A-Za-z0-9_-]{10,}/g },
   { name: 'genex-key', re: /genex_sk_v1_[A-Za-z0-9_-]{10,}/g },
   { name: 'bearer', re: /Bearer\s+[A-Za-z0-9\-._~+/=]{16,}/gi },
   { name: 'private-key', re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g },
@@ -20,7 +22,7 @@ const PATTERNS: Array<{ name: string; re: RegExp }> = [
   },
   {
     name: 'env-assign',
-    re: /((?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|DSN)\s*=\s*)([^\s;'"`]{4,})/gi,
+    re: /((?:API[_-]?KEY|TOKEN|SECRET|PASSWORD|DSN)\s*=\s*["']?)([^\s;'"`]{4,})(["']?)/gi,
   },
 ];
 

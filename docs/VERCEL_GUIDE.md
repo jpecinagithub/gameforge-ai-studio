@@ -36,8 +36,8 @@ Add exactly one variable (no secrets — this value ships in the client bundle):
 `VITE_API_URL` is baked in **at build time**. If you change it later, redeploy
 (Vercel rebuilds automatically on variable change).
 
-> Never put `GROQ_API_KEY` or any other secret in Vercel env vars for this
-> project — the browser bundle must never contain secrets. The Groq key lives
+> Never put `CLOUDFLARE_API_TOKEN` or any other secret in Vercel env vars for this
+> project — the browser bundle must never contain secrets. The Cloudflare token lives
 > only in the Oracle server's environment (see the Oracle guide).
 
 ## 3. SPA routing

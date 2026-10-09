@@ -12,7 +12,7 @@
 > unit-verified — 182 tests green across the workspace (shared has no test
 > files: types/schemas only). New in Phase 3: 8 playable game templates with
 > the `window.__studio` contract (44/44 determinism tests), the 15-phase build
-> pipeline + visual-evidence gathering (33/33), the Groq-backed director agent
+> pipeline + visual-evidence gathering (33/33), the Cloudflare-backed director agent
 > with tool loop (11/11), the Vite/React PWA frontend (13/13 + `vite build`),
 > worker↔director↔pipeline wiring (worker 12/12), preview origin on :8091
 > serving verified builds with strict CSP (4/4 new API tests), source-ZIP
@@ -20,7 +20,7 @@
 > message→run + question→answer→resume wiring in the API (21/21).
 > A real pipeline dry-run against arcade-2d was executed: validation, skips,
 > preview server, honest chromium-unavailable failure, verdict, and persist all
-> behaved as designed. Live-service rows (Docker/Postgres/Redis/Chromium/Groq)
+> behaved as designed. Live-service rows (Docker/Postgres/Redis/Chromium/Cloudflare)
 > remain 🔶 until Oracle (Phase 7).
 
 ## §2 Non-negotiable technical requirements — Frontend
@@ -58,19 +58,19 @@
 | Reverse proxy + HTTPS | 🔶 | Caddyfile written (main + preview origins); `caddy validate` + TLS on Oracle Phase 7 |
 | Works with frontend closed | ✅ | By design: runs live server-side via BullMQ |
 
-## §2 Artificial intelligence (Groq)
+## §2 Artificial intelligence (Cloudflare Workers AI)
 
 | Requirement | Status | Notes / target |
 |---|---|---|
-| Groq Cloud API as primary provider | 🔶 | GroqClient complete, 35/35 mocked tests; live key test is opt-in Phase 7 |
+| Cloudflare Workers AI as the LLM provider | 🔶 | CloudflareClient complete, 44/44 mocked tests; live credential test is opt-in on Oracle |
 | Key via server env only, never client-side | ✅ | By design; redactor registered at boot; enforced in review |
-| Startup model discovery + capability inspection | 🔶 | ModelRegistry.refresh() from /v1/models; live run Phase 7 |
+| Startup model discovery + capability inspection | 🔶 | ModelRegistry.refresh() from the account model catalog; live run on Oracle |
 | Configurable model per role (planning, codegen, review, reasoning, orchestration, vision, summarization, memory) | 🔶 | Registry + settings.modelByRole; role wiring Phase 4 |
 | Model capability registry + compatibility checks | 🔶 | Implemented; curated table date-stamped 2026-10-09, must re-verify |
 | No hardcoded/deprecated model names | ✅ | By design; selection is capability-filtered; enforced in review |
-| Rate limiting, token accounting, exp. backoff, bounded retries, timeouts, cost/request budget | 🔶 | Implemented + tested with mocks; live behavior Phase 7 |
+| Rate limiting, token accounting, exp. backoff, bounded retries, timeouts, cost/request budget | 🔶 | Implemented + tested with mocks; live behavior on Oracle |
 | No fabricated LLM responses for production | ✅ | By design; enforced in review |
-| Vision review only with verified image-capable model | ✅ | `verifyVisionModel()`: selectModel(requiresVision) → live vision probe; only a passing probe labels reviews `verified`; ⛔ live vision-capable model itself confirmed at Oracle startup (no such model in the current Groq key list) |
+| Vision review only with verified image-capable model | ✅ | `verifyVisionModel()`: selectModel(requiresVision) → live vision probe; only a passing probe labels reviews `verified`; ⛔ live vision-capable model itself confirmed at Oracle startup |
 
 ## §3 Reverse engineering
 
@@ -176,7 +176,7 @@
 | 3D viewer (rotate/zoom/lighting/animation), lazy loading, size caps | ❌ | Phase 5 |
 | Host-owned delivery records; unconfirmed/integrated/verified ladder | ❌ | Phase 5 |
 | Provider architecture: mandatory baseline (procedural three.js, canvas textures, open-licensed import, upload); optional (Blender, third-party APIs) with capability detection; unavailable = shown unavailable | ❌ | Phase 5/6 |
-| Never claim Groq generates 3D/music/video | ✅ | By design |
+| Never claim the AI provider generates 3D/music/video | ✅ | By design |
 
 ## §15 Blender integration
 
@@ -229,7 +229,7 @@
 
 | Requirement | Status | Notes / target |
 |---|---|---|
-| Backend status, per-role models, Groq connectivity test, defaults, limits, budgets, storage, preview, language, theme, sound, confirmations, plugins, memory, export | ✅ | Settings page: theme, language, model-per-role table, read-only API URL; key values never served |
+| Backend status, per-role models, AI provider connectivity test, defaults, limits, budgets, storage, preview, language, theme, sound, confirmations, plugins, memory, export | ✅ | Settings page: theme, language, model-per-role table, read-only API URL; key values never served |
 | No key values via read endpoints; persist across restarts | ✅ | By design; verified in review |
 
 ## §22 Database design
@@ -278,7 +278,7 @@
 | Unit tests (validation, state machines, plans, tools, memory, files, retry, cancel, model selection) | ❌ | Per phase |
 | Integration tests (PG/Redis/queues/recovery/git/storage/API/mocked model adapter) | ❌ | Per phase |
 | Browser E2E (create/prompt/inspect/play/edit/restore/download) | ❌ | Phase 7 |
-| Opt-in real-AI acceptance with Jon's Groq key (structured work → files → built game runs; mocks never presented as live) | ❌ | Phase 7 |
+| Opt-in real-AI acceptance with Jon's Cloudflare credentials (structured work → files → built game runs; mocks never presented as live) | ❌ | Phase 7 |
 | Security tests (traversal, unsafe commands, net isolation, uploads, secrets, limits, cancellation, malformed tool calls) | ❌ | Phase 7 |
 
 ## §28 Acceptance scenarios
@@ -298,7 +298,7 @@
 |---|---|---|
 | 1–2 | Working frontend / backend | ✅ | Vite PWA + Fastify API; acceptance A–F run (4 verified, 2 partial — see ACCEPTANCE_REPORT.md) |
 | 3–4 | DB migrations / durable job system | 🔶 | 4 migrations written + statically validated; live apply on Oracle |
-| 5–7 | Groq integration / agent orchestration / isolated runner | 🔶 | Provider + orchestration + runner implemented and unit-tested; live Groq/Docker on Oracle |
+| 5–7 | Cloudflare integration / agent orchestration / isolated runner | 🔶 | Provider + orchestration + runner implemented and unit-tested; live Cloudflare/Docker on Oracle |
 | 8–11 | Live preview / asset manager / build+test pipeline / memory+history | ✅ | Preview origin, asset routes, 15-phase pipeline, memory scopes — all exercised by acceptance suite |
 | 12–13 | Functional templates / plugin examples | 🔶 | Templates done; plugins done; live container execution Phase 7 |
 | 14–16 | Docker deploy config / env examples / API docs | ✅ | Compose + Caddy + Dockerfiles, .env.example (+DATABASE_URL/REDIS_URL), docs/API_GUIDE.md |

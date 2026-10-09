@@ -1,5 +1,5 @@
 /**
- * Director turn tests with a scripted (mocked) Groq client.
+ * Director turn tests with a scripted (mocked) provider client.
  *
  * - Full scripted run: listFiles → writeFile → execBuild → buildStatus → finishRun.
  * - askUser → PauseForUser propagates; the loop stops immediately (no more calls).
@@ -19,7 +19,7 @@ import {
   BudgetExhaustedError,
   BudgetTracker,
   type ChatCompletionsResult,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
   type ToolCall,
 } from '@gameforge/model-providers';
@@ -34,7 +34,7 @@ import type { GitOps, ToolContext } from '../src/tools.js';
 
 const SHA = 'c'.repeat(40);
 
-function scriptedGroq(responses: ChatCompletionsResult[]): GroqClient {
+function scriptedProvider(responses: ChatCompletionsResult[]): CloudflareClient {
   const queue = [...responses];
   return {
     chatCompletions: vi.fn(async () => {
@@ -42,7 +42,7 @@ function scriptedGroq(responses: ChatCompletionsResult[]): GroqClient {
       if (!next) throw new Error('script exhausted — unexpected extra model call');
       return next;
     }),
-  } as unknown as GroqClient;
+  } as unknown as CloudflareClient;
 }
 
 function reply(
@@ -153,7 +153,7 @@ describe('runDirectorTurn', () => {
   });
 
   it('runs a scripted 5-step conversation to finishRun', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       reply([{ name: 'listFiles', args: {} }], 'Let me look at the project.'),
       reply([{ name: 'writeFile', args: { path: 'src/game.ts', content: '// game\n' } }]),
       reply([{ name: 'execBuild', args: {} }]),
@@ -165,7 +165,7 @@ describe('runDirectorTurn', () => {
       runId: 'run_director_test',
       workDir: spy.workDir,
       ctx: spy.ctx,
-      groq,
+      provider,
       registry,
       budgets: new BudgetTracker({}),
       userRequest: 'Create a tiny 3D scene.',
@@ -179,11 +179,11 @@ describe('runDirectorTurn', () => {
     expect(spy.checkpoints).toEqual(['before agent edit src/game.ts']);
     expect(await fs.readFile(path.join(spy.workDir, 'src/game.ts'), 'utf8')).toBe('// game\n');
     expect(spy.enqueues).toBe(1);
-    expect((groq.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(5);
+    expect((provider.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(5);
   });
 
   it('askUser throws PauseForUser and the loop makes no further model calls', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       reply([{ name: 'askUser', args: { question: 'Which color?', options: ['red', 'blue'] } }]),
       reply([{ name: 'listFiles', args: {} }]), // must never be reached
     ]);
@@ -192,7 +192,7 @@ describe('runDirectorTurn', () => {
       runId: 'run_director_test',
       workDir: spy.workDir,
       ctx: spy.ctx,
-      groq,
+      provider,
       registry,
       budgets: new BudgetTracker({}),
       userRequest: 'Make it pretty.',
@@ -202,13 +202,13 @@ describe('runDirectorTurn', () => {
     expect((err as PauseForUser).questionId).toBe(spy.questions[0].id);
     expect(spy.questions[0].question).toBe('Which color?');
     // The loop stopped immediately: exactly one model call, no tool side effects.
-    expect((groq.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    expect((provider.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
     expect(spy.enqueues).toBe(0);
     expect(spy.checkpoints).toHaveLength(0);
   });
 
   it('budget exhaustion mid-loop throws typed BudgetExhaustedError and halts', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       {
         ...reply([{ name: 'listFiles', args: {} }]),
         usage: { inputTokens: 10_000, outputTokens: 10_000 },
@@ -220,18 +220,18 @@ describe('runDirectorTurn', () => {
       runId: 'run_director_test',
       workDir: spy.workDir,
       ctx: spy.ctx,
-      groq,
+      provider,
       registry,
       budgets: new BudgetTracker({ maxTokens: 100 }),
       userRequest: 'Do a thing.',
     }).catch((e) => e);
 
     expect(err).toBeInstanceOf(BudgetExhaustedError);
-    expect((groq.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
+    expect((provider.chatCompletions as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(1);
   });
 
   it('exceeding maxRounds throws typed ITERATION_BUDGET_EXHAUSTED', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       reply([{ name: 'listFiles', args: {} }]),
       reply([{ name: 'listFiles', args: {} }]),
       reply([{ name: 'listFiles', args: {} }]),
@@ -241,7 +241,7 @@ describe('runDirectorTurn', () => {
       runId: 'run_director_test',
       workDir: spy.workDir,
       ctx: spy.ctx,
-      groq,
+      provider,
       registry,
       budgets: new BudgetTracker({}),
       userRequest: 'Loop forever.',
@@ -256,12 +256,12 @@ describe('runDirectorTurn', () => {
   });
 
   it('a model that stops calling tools returns unfinished with its text', async () => {
-    const groq = scriptedGroq([reply([], 'I need more information first.')]);
+    const provider = scriptedProvider([reply([], 'I need more information first.')]);
     const res = await runDirectorTurn({
       runId: 'run_director_test',
       workDir: spy.workDir,
       ctx: spy.ctx,
-      groq,
+      provider,
       registry,
       budgets: new BudgetTracker({}),
       userRequest: 'Hi.',

@@ -20,7 +20,7 @@ npm run build        # tsc + vite build → dist/
 |---|---|---|
 | `VITE_API_URL` | `http://127.0.0.1:8090` | Backend base URL. Placeholder only — **never a secret**. |
 
-Build-time rule: no secret-shaped values in the client bundle (Groq key, Oracle
+Build-time rule: no secret-shaped values in the client bundle (Cloudflare token, Oracle
 credentials). The browser holds no API keys by design.
 
 ## Routes

@@ -113,7 +113,7 @@ function baseDeps(pool: DbPool, overrides: Partial<ProcessorDeps> = {}): Process
     redactor,
     log,
     storageRoot: '/tmp/gf-test-storage',
-    groq: {} as ProcessorDeps['groq'],
+    provider: {} as ProcessorDeps['provider'],
     registry: {} as ProcessorDeps['registry'],
     queues: {
       enqueueBuild: vi.fn(async () => ({ buildId: 'build_01' })),
@@ -194,9 +194,9 @@ describe('processAgentRun', () => {
     expect(args['runMode']).toBe('manual');
   });
 
-  it('fails closed with a typed error when no Groq key is configured', async () => {
+  it('fails closed with a typed error when no provider credentials are configured', async () => {
     const { pool, calls, job } = createMockDb({ runRow: baseRow() });
-    const res = await processAgentRun(job, baseDeps(pool, { groq: null }));
+    const res = await processAgentRun(job, baseDeps(pool, { provider: null }));
     expect(res.outcome).toBe('failed');
     expect(runMultiAgentJobMock).not.toHaveBeenCalled();
     const marked = calls.find((c) => /SET status = 'failed'/i.test(c.text));

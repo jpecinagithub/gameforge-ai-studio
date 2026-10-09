@@ -7,7 +7,7 @@ import { globalRedactor } from '@gameforge/shared';
  */
 export function initRedaction(): void {
   const secrets: Array<[string, string | undefined]> = [
-    ['groq-key', process.env.GROQ_API_KEY],
+    ['cloudflare-token', process.env.CLOUDFLARE_API_TOKEN],
     ['database-url', process.env.DATABASE_URL],
     ['redis-url', process.env.REDIS_URL],
   ];

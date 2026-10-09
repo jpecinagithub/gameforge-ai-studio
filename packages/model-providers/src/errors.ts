@@ -5,7 +5,7 @@
  * matching English text in messages. Every error carries { code, retryable }.
  */
 
-export const GroqErrorCode = {
+export const ProviderErrorCode = {
   RATE_LIMITED: 'rate_limited',
   MODEL_NOT_FOUND: 'model_not_found',
   TIMEOUT: 'timeout',
@@ -16,23 +16,23 @@ export const GroqErrorCode = {
   MODEL_UNAVAILABLE: 'model_unavailable',
   BUDGET_EXHAUSTED: 'budget_exhausted',
 } as const;
-export type GroqErrorCode =
-  (typeof GroqErrorCode)[keyof typeof GroqErrorCode];
+export type ProviderErrorCode =
+  (typeof ProviderErrorCode)[keyof typeof ProviderErrorCode];
 
-export interface GroqErrorOptions {
+export interface ProviderErrorOptions {
   status?: number;
   retryable?: boolean;
   cause?: unknown;
 }
 
-export class GroqError extends Error {
-  readonly code: GroqErrorCode;
+export class ProviderError extends Error {
+  readonly code: ProviderErrorCode;
   readonly status?: number;
   readonly retryable: boolean;
 
-  constructor(code: GroqErrorCode, message: string, opts: GroqErrorOptions = {}) {
+  constructor(code: ProviderErrorCode, message: string, opts: ProviderErrorOptions = {}) {
     super(message);
-    this.name = 'GroqError';
+    this.name = 'ProviderError';
     this.code = code;
     this.status = opts.status;
     this.retryable = opts.retryable ?? false;
@@ -44,13 +44,13 @@ export class GroqError extends Error {
 }
 
 /** Thrown when no registered model satisfies a role's capability requirements. */
-export class ModelUnavailableError extends GroqError {
+export class ModelUnavailableError extends ProviderError {
   readonly missingCapability: string;
 
   constructor(missingCapability: string, detail: string) {
     super(
-      GroqErrorCode.MODEL_UNAVAILABLE,
-      `No active Groq model provides required capability "${missingCapability}". ${detail}`,
+      ProviderErrorCode.MODEL_UNAVAILABLE,
+      `No active model provides required capability "${missingCapability}". ${detail}`,
       { retryable: false },
     );
     this.name = 'ModelUnavailableError';
@@ -66,12 +66,12 @@ export const BudgetKind = {
 export type BudgetKind = (typeof BudgetKind)[keyof typeof BudgetKind];
 
 /** Thrown by BudgetTracker when a run budget is exceeded. */
-export class BudgetExhaustedError extends GroqError {
+export class BudgetExhaustedError extends ProviderError {
   readonly budget: BudgetKind;
 
   constructor(budget: BudgetKind, detail: string) {
     super(
-      GroqErrorCode.BUDGET_EXHAUSTED,
+      ProviderErrorCode.BUDGET_EXHAUSTED,
       `Budget exhausted (${budget}): ${detail}`,
       { retryable: false },
     );

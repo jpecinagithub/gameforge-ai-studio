@@ -15,12 +15,12 @@ function fakeClient(modelIds: string[]) {
 describe('ModelRegistry refresh', () => {
   it('registers curated models with curated capabilities', async () => {
     const reg = new ModelRegistry();
-    const report = await reg.refresh(fakeClient(['openai/gpt-oss-120b']));
-    expect(report.added).toEqual(['openai/gpt-oss-120b']);
-    const caps = reg.getCapabilities('openai/gpt-oss-120b');
+    const report = await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b']));
+    expect(report.added).toEqual(['@cf/openai/gpt-oss-120b']);
+    const caps = reg.getCapabilities('@cf/openai/gpt-oss-120b');
     expect(caps?.supports_tools).toBe(true);
     expect(caps?.supports_vision).toBe(false);
-    expect(reg.isActive('openai/gpt-oss-120b')).toBe(true);
+    expect(reg.isActive('@cf/openai/gpt-oss-120b')).toBe(true);
   });
 
   it('unknown models get conservative defaults (no tools, no vision)', async () => {
@@ -31,8 +31,8 @@ describe('ModelRegistry refresh', () => {
 
   it('disappeared models are deactivated, never deleted', async () => {
     const reg = new ModelRegistry();
-    await reg.refresh(fakeClient(['openai/gpt-oss-120b', 'gone/model']));
-    const report = await reg.refresh(fakeClient(['openai/gpt-oss-120b']));
+    await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b', 'gone/model']));
+    const report = await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b']));
     expect(report.deactivated).toEqual(['gone/model']);
     expect(reg.isActive('gone/model')).toBe(false);
     // History keeps its meaning: capabilities still queryable.
@@ -56,14 +56,14 @@ describe('ModelRegistry refresh', () => {
 describe('ModelRegistry selectModel', () => {
   it('selects a tool-capable model for orchestration without naming models', async () => {
     const reg = new ModelRegistry();
-    await reg.refresh(fakeClient(['openai/gpt-oss-120b', 'plain/model']));
+    await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b', 'plain/model']));
     const picked = reg.selectModel({ role: 'director', requiresTools: true });
-    expect(picked).toBe('openai/gpt-oss-120b');
+    expect(picked).toBe('@cf/openai/gpt-oss-120b');
   });
 
   it('refuses vision requirement when no vision model is registered', async () => {
     const reg = new ModelRegistry();
-    await reg.refresh(fakeClient(['openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
+    await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b', '@cf/openai/gpt-oss-20b']));
     const err = (() => {
       try {
         reg.selectModel({ role: 'reviewer', requiresVision: true });
@@ -81,10 +81,10 @@ describe('ModelRegistry selectModel', () => {
   it('selects a vision model when one is available', async () => {
     const reg = new ModelRegistry();
     await reg.refresh(
-      fakeClient(['openai/gpt-oss-120b', 'meta-llama/llama-4-scout-17b-16e-instruct']),
+      fakeClient(['@cf/openai/gpt-oss-120b', '@cf/meta/llama-3.2-11b-vision-instruct']),
     );
     const picked = reg.selectModel({ role: 'reviewer', requiresVision: true });
-    expect(picked).toBe('meta-llama/llama-4-scout-17b-16e-instruct');
+    expect(picked).toBe('@cf/meta/llama-3.2-11b-vision-instruct');
   });
 
   it('throws on an empty registry', async () => {
@@ -94,7 +94,7 @@ describe('ModelRegistry selectModel', () => {
 
   it('is deterministic for tied candidates', async () => {
     const reg = new ModelRegistry();
-    await reg.refresh(fakeClient(['openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
+    await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b', '@cf/openai/gpt-oss-20b']));
     const a = reg.selectModel({ role: 'director', requiresTools: true });
     const b = reg.selectModel({ role: 'director', requiresTools: true });
     expect(a).toBe(b);

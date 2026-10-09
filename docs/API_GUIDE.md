@@ -102,10 +102,10 @@ extension, sha256 recorded), `GET /assets/:id/download`,
 `DELETE /assets/:id` (204; file removed + soft delete),
 `POST /assets/generations` (501 — AI generation is a Phase 6+ concern).
 
-**Models** — `GET /models` (discovered at startup via live Groq capabilities —
+**Models** — `GET /models` (discovered at startup via the live Cloudflare Workers AI catalog —
 never hardcoded names), `GET /models/capabilities`,
 `POST /models/connection-test` (opt-in; `?probeTools=true` also probes
-tool-calling; spends tokens — it's explicit).
+tool-calling; spends neurons — it's explicit).
 
 **Plugins** — `GET /plugins`, `POST /plugins/install`,
 `POST /plugins/:id/enable`, `POST /plugins/:id/disable`.

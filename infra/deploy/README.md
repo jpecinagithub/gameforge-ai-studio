@@ -34,7 +34,7 @@ gate** — the Genex-`ProcessSandbox` analogue. Consequences, all deliberate:
 ```bash
 cd infra/deploy
 cp .env.example .env
-# edit .env: GF_DOMAIN, GF_ACME_EMAIL, ALLOWED_ORIGINS, POSTGRES_PASSWORD, GROQ_API_KEY
+# edit .env: GF_DOMAIN, GF_ACME_EMAIL, ALLOWED_ORIGINS, POSTGRES_PASSWORD, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
 bash ../../scripts/init.sh     # checks docker, creates STORAGE_ROOT, pre-pulls images
 docker compose up -d --build
 docker compose exec runner node apps/runner/dist/service.js --check  # expect: docker: available

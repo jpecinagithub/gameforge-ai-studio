@@ -19,7 +19,7 @@ import {
 import { createPgTaskStore } from './taskStore.js';
 import {
   BudgetExhaustedError,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
 } from '@gameforge/model-providers';
 import type { DbPool } from './db.js';
@@ -69,8 +69,8 @@ export interface ProcessorDeps {
   redactor: Pick<SecretRedactor, 'redactDeep'>;
   log: (msg: string, fields?: Record<string, unknown>) => void;
   storageRoot: string;
-  /** Null when GROQ_API_KEY is not configured — runs fail closed with a typed error. */
-  groq: GroqClient | null;
+  /** Null when CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are not configured — runs fail closed with a typed error. */
+  provider: CloudflareClient | null;
   registry: ModelRegistry;
   queues: DirectorQueues;
   evidence: EvidenceProvider;
@@ -103,7 +103,7 @@ export async function processAgentRun(
   job: JobLike,
   deps: ProcessorDeps,
 ): Promise<{ outcome: RunOutcome }> {
-  const { pool, redactor, log, storageRoot, groq, registry, queues, evidence } = deps;
+  const { pool, redactor, log, storageRoot, provider, registry, queues, evidence } = deps;
   const runId = job.data.runId;
   const logF = (msg: string, fields?: Record<string, unknown>) =>
     log(msg, { runId, ...fields });
@@ -191,10 +191,10 @@ export async function processAgentRun(
     if (!projectId) throw new Error(`agent_runs ${runId} has no project_id`);
 
     // 5. Fail closed without an LLM key — never fake a run.
-    if (!groq) {
+    if (!provider) {
       return await markFailed(
         'model_unavailable',
-        'GROQ_API_KEY is not configured on the server; the director cannot run.',
+        'CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are not configured on the server; the director cannot run.',
       );
     }
 
@@ -311,7 +311,7 @@ export async function processAgentRun(
         queues,
         workDir,
         userRequest: requestWithMemories,
-        groq,
+        provider,
         registry,
         evidence,
         events,

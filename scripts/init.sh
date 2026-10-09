@@ -15,7 +15,7 @@ echo "==> 2/5 Checking .env..."
 if [ ! -f .env ]; then
   cp .env.example .env
   echo "    Created .env from .env.example."
-  echo "    ACTION NEEDED: edit .env (GF_DOMAIN, POSTGRES_PASSWORD, GROQ_API_KEY, ALLOWED_ORIGINS)"
+  echo "    ACTION NEEDED: edit .env (GF_DOMAIN, POSTGRES_PASSWORD, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, ALLOWED_ORIGINS)"
   echo "    then re-run this script."
   exit 1
 fi

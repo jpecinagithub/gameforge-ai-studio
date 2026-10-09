@@ -121,7 +121,7 @@ export interface ToolDef<TArgs = unknown> {
   description: string;
   /** zod schema for arg validation (fail closed). */
   schema: z.ZodType<TArgs>;
-  /** Hand-written JSON Schema for the Groq tool definition (no codegen dep). */
+  /** Hand-written JSON Schema for the provider tool definition (no codegen dep). */
   parameters: Record<string, unknown>;
   execute: (args: TArgs, ctx: ToolContext) => Promise<unknown>;
 }
@@ -496,16 +496,16 @@ function summarize(v: unknown): string {
   }
 }
 
-/** Convert the registry to Groq tool definitions (hand-written JSON Schemas). */
-export function toGroqTools(): Array<{
+/** Convert the registry to provider tool definitions (hand-written JSON Schemas). */
+export function toProviderTools(): Array<{
   type: 'function';
   function: { name: string; description: string; parameters: Record<string, unknown> };
 }> {
-  return toGroqToolsFor(TOOLS);
+  return toProviderToolsFor(TOOLS);
 }
 
-/** Groq tool definitions for a restricted registry (Phase 4 roles). */
-export function toGroqToolsFor(
+/** Provider tool definitions for a restricted registry (Phase 4 roles). */
+export function toProviderToolsFor(
   defs: AnyToolDef[],
 ): Array<{
   type: 'function';

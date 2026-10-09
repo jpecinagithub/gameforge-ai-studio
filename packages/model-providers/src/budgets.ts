@@ -1,8 +1,8 @@
 /**
  * Per-run budget enforcement (ARCHITECTURE.md §7).
  *
- * Groq is always metered, so budgets are load-bearing architecture, not an edge
- * case. The tracker is fed per-completion usage; exceeding any configured limit
+ * Workers AI is always metered (neurons), so budgets are load-bearing architecture,
+ * not an edge case. The tracker is fed per-completion usage; exceeding any configured limit
  * throws a typed BudgetExhaustedError naming the broken budget (typed codes,
  * never English matching at the call site).
  */

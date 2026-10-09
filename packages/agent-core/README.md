@@ -4,12 +4,12 @@ Director agent + tool loop for GameForge AI Studio (Phase 3).
 
 ## Tool-loop design
 
-`runDirectorTurn()` runs one Groq tool-calling session for up to `maxRounds`
+`runDirectorTurn()` runs one Workers AI tool-calling session for up to `maxRounds`
 (default 30) rounds:
 
 1. Model selection is capability-gated: `registry.selectModel({ role: 'director',
    requiresTools: true })` — no model names appear in this package.
-2. Each round: `groq.chatCompletions({ model, messages, tools })` →
+2. Each round: `provider.chatCompletions({ model, messages, tools })` →
    `budgets.recordUsage(...)` (typed throw on breach) → execute tool calls
    sequentially → append results as `tool` messages.
 3. The loop ends when the model calls `finishRun`, stops calling tools, or a
@@ -17,7 +17,7 @@ Director agent + tool loop for GameForge AI Studio (Phase 3).
 
 Every completion's usage is recorded in the `BudgetTracker` (tokens always;
 cost via `computeCost`, `null` when the model has no verified price — never
-guessed). Budgets are load-bearing: Groq is always metered.
+guessed). Budgets are load-bearing: Workers AI is always metered (neurons).
 
 ## Checkpoint-before-edit guarantee
 
@@ -49,7 +49,7 @@ director's next turn.
 
 ## What runAgentJob expects from the worker
 
-`runAgentJob({ runId, projectId, db, queues, workDir, userRequest, groq, registry, … })`
+`runAgentJob({ runId, projectId, db, queues, workDir, userRequest, provider, registry, … })`
 is called by `apps/worker` **after** it has claimed the run
 (`queued → planning`, atomic). The worker keeps: claim, pause/resume/cancel
 checks, and `interrupted`-marking on unexpected throws.

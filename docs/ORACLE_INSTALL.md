@@ -6,7 +6,7 @@ This backend has **no login screen by design** (it's your personal studio; accou
 would only add attack surface). That is safe **only if the API is reachable
 exclusively by you**. If the API were exposed to the public internet, anyone
 could use your server as a free AI code-execution service — generating games,
-running code in containers, and burning your Groq budget — all billed to you.
+running code in containers, and burning your Cloudflare Workers AI budget — all billed to you.
 
 **So: the recommended setup below keeps the API off the public internet
 entirely**, using Tailscale (a private VPN mesh). Your browser talks to the
@@ -17,7 +17,7 @@ How to use this guide: each step first explains **what the commands do**, then
 gives you a **paste-ready block**. Paste the whole block, press Enter, wait for
 it to finish, then move to the next step. You never need a text editor — every
 file is written with `printf`/heredoc commands. Nothing here asks for your
-Groq key in chat: you will paste it **directly into a file on the server**
+Cloudflare token in chat: you will paste it **directly into a file on the server**
 (Step 6), where it stays.
 
 **What you'll have at the end:** Docker running the API, worker, runner,
@@ -146,16 +146,29 @@ Expected: `drwx------ … /var/lib/gameforge`.
 
 **What this does:** creates `infra/deploy/.env` from the template and fills in
 your values. This file is **never committed to git** and never leaves the
-server. Three secrets are generated or pasted:
+server. Secrets are generated or pasted:
 
 - `POSTGRES_PASSWORD` — generated randomly by the command below.
-- `GROQ_API_KEY` — **you paste it here, on the server, now.** It is never typed
-  into chat, never committed, never put in the frontend.
+- `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` — **you paste them here, on
+  the server, now.** They are never typed into chat, never committed, never
+  put in the frontend.
 - `DATABASE_URL` / `REDIS_URL` — built from the values above (internal
   container hostnames `postgres` and `redis`).
 
-**First, generate the Postgres password and write the base file** (replace
-`oracle-vm.taila1b2c3.ts.net` with your real tailnet name from Step 2):
+**First, create the Cloudflare API token** (in your browser, on the Cloudflare
+dashboard — this is the only step that happens outside the server):
+
+1. Go to dash.cloudflare.com → **My Profile** (top-right avatar) → **API Tokens**.
+2. **Create Token** → find the **Workers AI** template (or create a custom token
+   with permission **Account → Workers AI → Read** on your account).
+3. Copy the token it shows you **once** — keep the tab open, you'll paste it on
+   the server in a moment.
+4. Copy your **Account ID**: it's in the dashboard URL
+   (`dash.cloudflare.com/<ACCOUNT_ID>/...`) or under **Workers & Pages →
+   Overview** (right sidebar).
+
+**Now, on the server, generate the Postgres password and write the base file**
+(replace `oracle-vm.taila1b2c3.ts.net` with your real tailnet name from Step 2):
 
 ```bash
 cd ~/gameforge-ai-studio/infra/deploy
@@ -169,31 +182,40 @@ POSTGRES_PASSWORD=${PG_PASS}
 POSTGRES_DB=gameforge
 DATABASE_URL=postgres://gameforge:${PG_PASS}@postgres:5432/gameforge
 REDIS_URL=redis://redis:6379
-GROQ_API_KEY=
+CLOUDFLARE_API_TOKEN=
+CLOUDFLARE_ACCOUNT_ID=
 STORAGE_ROOT=/var/lib/gameforge
 RUNNER_WORK_ROOT=/var/lib/gameforge/work
 RUNNER_LOG_ROOT=/var/lib/gameforge/runner-logs
 EOF
 chmod 600 .env
-echo "written (GROQ_API_KEY still empty)"
+echo "written (Cloudflare credentials still empty)"
 ```
 
-**Now paste your Groq key into the file** — this appends it to the
-`GROQ_API_KEY=` line. Copy your key, then run:
+**Now paste your Cloudflare token into the file** — this fills the
+`CLOUDFLARE_API_TOKEN=` line without ever showing the token on screen:
 
 ```bash
-read -rsp "Paste GROQ_API_KEY (input hidden), then Enter: " K && echo && \
-sed -i "s|^GROQ_API_KEY=.*|GROQ_API_KEY=${K}|" .env && unset K && \
-grep -c "^GROQ_API_KEY=gsk_" .env && echo "key stored (value not shown)"
+read -rsp "Paste CLOUDFLARE_API_TOKEN (input hidden), then Enter: " K && echo && \
+sed -i "s|^CLOUDFLARE_API_TOKEN=.*|CLOUDFLARE_API_TOKEN=${K}|" .env && unset K && \
+grep -c "^CLOUDFLARE_API_TOKEN=." .env && echo "token stored (value not shown)"
 ```
 
-Expected: `1` followed by "key stored". The key is now only in `/var/lib/…`
-no — in `infra/deploy/.env` (mode 600) on this server. The API registers it
-with the secret redactor at boot, so it never appears in logs.
+Then the Account ID (not secret — visible input is fine):
 
-> Without a Groq key the studio still runs: project/file/asset/build features
-> work, but agent runs and the semantic visual review stay unavailable (the
-> review is labeled "unverified" instead of faking it). You can add the key
+```bash
+read -rp "Paste CLOUDFLARE_ACCOUNT_ID, then Enter: " A && \
+sed -i "s|^CLOUDFLARE_ACCOUNT_ID=.*|CLOUDFLARE_ACCOUNT_ID=${A}|" .env && unset A && \
+grep -c "^CLOUDFLARE_ACCOUNT_ID=[0-9a-f]\{32\}$" .env && echo "account id stored"
+```
+
+Expected: `1` followed by "token stored" / "account id stored". The token is
+now only in `infra/deploy/.env` (mode 600) on this server. The API registers
+it with the secret redactor at boot, so it never appears in logs.
+
+> Without Cloudflare credentials the studio still runs: project/file/asset/build
+> features work, but agent runs and the semantic visual review stay unavailable
+> (the review is labeled "unverified" instead of faking it). You can add them
 > later and restart the API.
 
 ---
@@ -318,7 +340,7 @@ curl -s -X POST "$BASE/api/v1/projects" -H 'content-type: application/json' \
   -d '{"name":"smoke test","template":"third-person"}' | head -c 300; echo
 # 2. List projects
 curl -s "$BASE/api/v1/projects" | head -c 200; echo
-# 3. Models discovered at startup (empty until a Groq key is set + reachable)
+# 3. Models discovered at startup (empty until Cloudflare credentials are set + reachable)
 curl -s "$BASE/api/v1/models" | head -c 200; echo
 ```
 
@@ -389,4 +411,4 @@ If you ever want the studio reachable without Tailscale, you need **all** of:
 | API log shows `DATABASE_URL is not set` | The `.env` from Step 6 — check the `DATABASE_URL=` line exists and has no spaces. |
 | Frontend (Vercel) says "backend unreachable" | `VITE_API_URL` must be `https://YOUR_TAILNET_NAME.ts.net/api` and your laptop needs Tailscale connected. The value is baked at build time — redeploy Vercel after changing it. |
 | Builds fail with "Chromium unavailable" | The worker downloads Playwright's browser on first use; check `docker compose logs worker` and that the VM has ~2 GB free disk. |
-| Groq calls fail with 401 | The key in `.env` is wrong or has trailing whitespace. Re-run the `sed` line from Step 6 with the correct key, then `docker compose restart api worker`. |
+| Cloudflare calls fail with 401 | The token in `.env` is wrong, lacks the Workers AI permission, or has trailing whitespace. Re-run the token `sed` line from Step 6 with the correct token, then `docker compose restart api worker`. |

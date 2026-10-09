@@ -7,7 +7,7 @@ import {
   createSecretRedactor,
   newBuildId,
 } from '@gameforge/shared';
-import { GroqClient, ModelRegistry } from '@gameforge/model-providers';
+import { CloudflareClient, ModelRegistry } from '@gameforge/model-providers';
 import type { EvidenceProvider } from '@gameforge/agent-core';
 import { createQueues, QUEUE_NAMES } from './queues.js';
 import { processAgentRun, type DirectorQueues } from './runProcessor.js';
@@ -44,7 +44,8 @@ async function main() {
 
   // Secrets: register known values so redaction-on-append catches them.
   const redactor = createSecretRedactor();
-  if (process.env['GROQ_API_KEY']) redactor.addSecret('groq-key', process.env['GROQ_API_KEY']);
+  if (process.env['CLOUDFLARE_API_TOKEN'])
+    redactor.addSecret('cloudflare-token', process.env['CLOUDFLARE_API_TOKEN']);
   if (process.env['DATABASE_URL']) redactor.addSecret('db-url', process.env['DATABASE_URL']);
 
   const pgPool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
@@ -66,15 +67,20 @@ async function main() {
 
   // LLM wiring. No key → the director fails closed with a typed error
   // (processAgentRun), never a fake run.
-  const groq = process.env['GROQ_API_KEY']
-    ? new GroqClient({ apiKey: process.env['GROQ_API_KEY'] })
-    : null;
-  if (!groq) jsonLog('warn', 'GROQ_API_KEY not set; agent runs will fail closed');
+  const provider =
+    process.env['CLOUDFLARE_API_TOKEN'] && process.env['CLOUDFLARE_ACCOUNT_ID']
+      ? new CloudflareClient({
+          apiToken: process.env['CLOUDFLARE_API_TOKEN'],
+          accountId: process.env['CLOUDFLARE_ACCOUNT_ID'],
+        })
+      : null;
+  if (!provider)
+    jsonLog('warn', 'CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID not set; agent runs will fail closed');
   const registry = new ModelRegistry();
-  if (groq) {
+  if (provider) {
     try {
-      await registry.refresh(groq);
-      jsonLog('info', 'model registry refreshed from Groq');
+      await registry.refresh(provider);
+      jsonLog('info', 'model registry refreshed from Cloudflare Workers AI');
     } catch (err) {
       jsonLog('warn', 'model registry refresh failed; curated table remains', {
         error: err instanceof Error ? err.message : String(err),
@@ -140,7 +146,7 @@ async function main() {
         redactor,
         log,
         storageRoot,
-        groq,
+        provider,
         registry,
         queues: directorQueues,
         evidence,
@@ -153,7 +159,7 @@ async function main() {
 
   const buildsWorker = new Worker(
     QUEUE_NAMES.builds,
-    async (job) => processBuild(job, { pool, redactor, log, storageRoot, groq, registry }),
+    async (job) => processBuild(job, { pool, redactor, log, storageRoot, provider, registry }),
     { connection, concurrency: buildConcurrency },
   );
   buildsWorker.on('failed', (job, err) =>
@@ -175,7 +181,7 @@ async function main() {
   jsonLog('info', 'gameforge-worker started', {
     concurrency,
     buildConcurrency,
-    groq: groq ? 'configured' : 'missing',
+    provider: provider ? 'configured' : 'missing',
   });
 }
 

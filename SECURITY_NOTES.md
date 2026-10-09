@@ -44,7 +44,7 @@ What was done instead (verifiable here):
 | Agent actors forbidden on plugin install/enable/disable and on all improvement mutations | pre-existing; re-verified | actor-enforcement tests |
 | JSON body cap 10 MB (413 `payload_too_large`); multipart 10 MB/file | pre-existing; tested | body-limit tests |
 | Error envelope never leaks stack traces / key material; pino redaction + `globalRedactor` on secrets | pre-existing; tested | 500-leak test |
-| Redaction registered at boot (`GROQ_API_KEY`, `DATABASE_URL`, `REDIS_URL`) | `apps/api/src/redact.ts` | log line shows `<redacted>` |
+| Redaction registered at boot (`CLOUDFLARE_API_TOKEN`, `DATABASE_URL`, `REDIS_URL`) | `apps/api/src/redact.ts` | log line shows `<redacted>` |
 | Backup + restore scripts (checksum-verified, reversible, refuse without env) | `infra/backup/` | syntax + refusal verified |
 
 ## 3. Verified by code read (not unit-testable here)
@@ -69,4 +69,4 @@ What was done instead (verifiable here):
 - Load behavior of the tiered limiter under real concurrency (in-memory state
   is per-process; with multiple API replicas it is per-replica — documented,
   acceptable for a single-user studio behind one proxy).
-- Groq opt-in acceptance (real key, real tokens) — `docs/ACCEPTANCE_REPORT.md`.
+- Cloudflare opt-in acceptance (real credentials, real neurons) — `docs/ACCEPTANCE_REPORT.md`.

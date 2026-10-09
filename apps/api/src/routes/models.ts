@@ -6,8 +6,8 @@ import '../types.js';
 
 /**
  * Model registry routes. The registry is populated at startup / on demand from
- * Groq's /v1/models (Phase 2, model-providers package). No model names are
- * hardcoded here — selection always goes through the registry.
+ * the Cloudflare Workers AI model catalog (model-providers package). No model
+ * names are hardcoded here — selection always goes through the registry.
  */
 
 export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
@@ -32,13 +32,14 @@ export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
     // The capability keys the registry tracks; agent roles that bind models.
     capabilityKeys: ['context_window', 'supports_tools', 'supports_vision', 'supports_json_mode'],
     agentRoles: Object.values(AgentRole),
-    provider: 'groq',
+    provider: 'cloudflare',
   }));
 
   fastify.post('/models/connection-test', async (req) => {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) {
-      throw badRequest('GROQ_API_KEY is not configured on the server');
+    const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+    if (!apiToken || !accountId) {
+      throw badRequest('CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are not configured on the server');
     }
     if (!modelProviders) {
       throw dependencyUnavailable(
@@ -46,12 +47,12 @@ export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
       );
     }
     // Opt-in tool-calling probe. Only the exact value 'true' enables it — the
-    // probe sends a real chat completion and SPENDS TOKENS, so it never runs
+    // probe sends a real chat completion and SPENDS NEURONS, so it never runs
     // unless explicitly requested.
     const probeTools = (req.query as Record<string, unknown> | undefined)?.probeTools === 'true';
     try {
-      const client = modelProviders.createGroqClient(apiKey);
-      const { models } = await client.listModels();
+      const client = modelProviders.createCloudflareClient(apiToken, accountId);
+      const models = await client.listModels();
       let toolProbe: { model: string; supported: boolean } | null = null;
       if (probeTools) {
         const model = await resolveDirectorModel(db);
@@ -63,10 +64,10 @@ export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
         // toolProbe stays null when no director model is configured or the
         // installed provider package has no probe implementation.
       }
-      // Never return the key, its prefix, or any credential material.
+      // Never return the token, its prefix, or any credential material.
       return { ok: true, modelCount: models.length, toolProbe };
     } catch (err) {
-      throw dependencyUnavailable(`Groq connection failed: ${safeMessage((err as Error).message)}`);
+      throw dependencyUnavailable(`Cloudflare connection failed: ${safeMessage((err as Error).message)}`);
     }
   });
 }

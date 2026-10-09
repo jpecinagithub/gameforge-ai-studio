@@ -11,7 +11,7 @@ import {
   BudgetExhaustedError,
   BudgetTracker,
   type ChatCompletionsResult,
-  type GroqClient,
+  type CloudflareClient,
   type ModelRegistry,
 } from '@gameforge/model-providers';
 import {
@@ -22,9 +22,9 @@ import {
 } from '../src/review.js';
 import type { EvidenceSummary } from '../src/tools.js';
 
-function scriptedGroq(contents: Array<string | null>): GroqClient {
+function scriptedProvider(contents: Array<string | null>): CloudflareClient {
   const queue = [...contents];
-  const groq = {
+  const provider = {
     chatCompletions: vi.fn(async () => {
       const next = queue.shift();
       if (next === undefined) throw new Error('script exhausted');
@@ -37,8 +37,8 @@ function scriptedGroq(contents: Array<string | null>): GroqClient {
       };
       return res;
     }),
-  } as unknown as GroqClient;
-  return groq;
+  } as unknown as CloudflareClient;
+  return provider;
 }
 
 const registry = { selectModel: () => 'mock-model' } as unknown as ModelRegistry;
@@ -65,11 +65,11 @@ function candidate(label: 'A' | 'B', over: Partial<ReviewCandidate> = {}): Revie
 }
 
 function reviewOpts(
-  groq: GroqClient,
+  provider: CloudflareClient,
   extra: Record<string, unknown> = {},
 ) {
   return {
-    groq,
+    provider,
     registry,
     budgets: new BudgetTracker({}),
     candidateA: candidate('A'),
@@ -102,10 +102,10 @@ describe('parseVerdict', () => {
 
 describe('blindReview', () => {
   it('returns the parsed pick and biggest gap', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       '{"pick": "A", "biggestGap": "B crashes on boot", "notes": "A is playable"}',
     ]);
-    const res = await blindReview(reviewOpts(groq));
+    const res = await blindReview(reviewOpts(provider));
     expect(res.pick).toBe('A');
     expect(res.biggestGap).toBe('B crashes on boot');
     expect(res.keptIncumbent).toBe(false);
@@ -113,8 +113,8 @@ describe('blindReview', () => {
   });
 
   it('keeps the incumbent on a garbled verdict (never ties, never defects)', async () => {
-    const groq = scriptedGroq(['garbled nonsense', 'more nonsense']);
-    const res = await blindReview(reviewOpts(groq, { maxAttempts: 2 }));
+    const provider = scriptedProvider(['garbled nonsense', 'more nonsense']);
+    const res = await blindReview(reviewOpts(provider, { maxAttempts: 2 }));
     expect(res.pick).toBe('B'); // incumbent label passed in
     expect(res.biggestGap).toBe('unparseable verdict; incumbent kept');
     expect(res.keptIncumbent).toBe(true);
@@ -122,22 +122,22 @@ describe('blindReview', () => {
   });
 
   it('retries once on garbled output, then uses the good verdict', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       'oops',
       '{"pick": "B", "biggestGap": "A is blank", "notes": "clear"}',
     ]);
-    const res = await blindReview(reviewOpts(groq, { maxAttempts: 3 }));
+    const res = await blindReview(reviewOpts(provider, { maxAttempts: 3 }));
     expect(res.pick).toBe('B');
     expect(res.keptIncumbent).toBe(false);
     expect(res.attempts).toBe(2);
   });
 
   it('never tells the reviewer which label is incumbent (structural blindness)', async () => {
-    const groq = scriptedGroq([
+    const provider = scriptedProvider([
       '{"pick": "A", "biggestGap": "x", "notes": "y"}',
     ]);
-    const spy = groq.chatCompletions as ReturnType<typeof vi.fn>;
-    await blindReview(reviewOpts(groq));
+    const spy = provider.chatCompletions as ReturnType<typeof vi.fn>;
+    await blindReview(reviewOpts(provider));
     const sent = spy.mock.calls[0][0] as { messages: Array<{ content: unknown }> };
     const allText = sent.messages.map((m) => String(m.content)).join('\n');
     // No message may associate a label (A/B) with incumbency. Generic
@@ -165,10 +165,10 @@ describe('blindReview', () => {
   });
 
   it('budget exhaustion propagates typed (never swallowed by review)', async () => {
-    const groq = scriptedGroq(['{"pick": "A", "biggestGap": "x", "notes": "y"}']);
+    const provider = scriptedProvider(['{"pick": "A", "biggestGap": "x", "notes": "y"}']);
     const budgets = new BudgetTracker({ maxTokens: 1 });
     const err = await blindReview({
-      ...reviewOpts(groq),
+      ...reviewOpts(provider),
       budgets,
     }).catch((e) => e);
     expect(err).toBeInstanceOf(BudgetExhaustedError);

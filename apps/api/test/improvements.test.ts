@@ -198,7 +198,7 @@ beforeEach(async () => {
     git: stubGit,
     storageRoot: '/tmp/gf-test',
     modelProviders: undefined,
-    groqApiKey: undefined,
+    providerApiToken: undefined,
   } as unknown as ServerDeps;
   app = await buildServer(deps);
 });
@@ -236,7 +236,7 @@ describe('POST /improvements (propose)', () => {
   });
 
   it('400 on secret-like config target', async () => {
-    const res = await propose('config', 'groq_api_key', { value: 'x' });
+    const res = await propose('config', 'cloudflare_api_token', { value: 'x' });
     expect(res.statusCode).toBe(400);
   });
 
