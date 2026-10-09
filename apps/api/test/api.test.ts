@@ -195,6 +195,45 @@ describe('runs idempotency', () => {
     created_at: '2026-10-09T00:00:00.000Z',
   };
 
+  it('GET /projects/:id/runs lists runs for the project', async () => {
+    const db = createStubDb();
+    projectHandlers(db);
+    db.on(/COUNT\(\*\)[^]*FROM agent_runs WHERE project_id/, () => ({
+      rows: [{ total: '1' }],
+      rowCount: 1,
+    }));
+    db.on(/FROM agent_runs WHERE project_id = \$1/, () => ({
+      rows: [{ ...RUN_ROW }],
+      rowCount: 1,
+    }));
+
+    const { server } = await makeServer({ db });
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/v1/projects/${PROJECT_ROW.id}/runs`,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.total).toBe(1);
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0].id).toBe('run_01JTEST123');
+  });
+
+  it('GET /projects/:id/runs 404s for an unknown project', async () => {
+    const db = createStubDb();
+    db.on(/FROM projects WHERE id = \$1 AND deleted_at IS NULL/, () => ({
+      rows: [],
+      rowCount: 0,
+    }));
+
+    const { server } = await makeServer({ db });
+    const res = await server.inject({
+      method: 'GET',
+      url: '/api/v1/projects/does-not-exist/runs',
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
   it('same idempotency key returns the same run and enqueues once', async () => {
     const db = createStubDb();
     projectHandlers(db);

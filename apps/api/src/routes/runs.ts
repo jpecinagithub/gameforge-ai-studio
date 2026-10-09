@@ -7,6 +7,8 @@ import {
   TERMINAL_RUN_STATUSES,
   RunStatus,
   AgentEventKind,
+  paginationSchema,
+  page,
 } from '@gameforge/shared';
 import { conflict, notFound } from '../httpErrors.js';
 import { apiError, ApiErrorCode } from '@gameforge/shared';
@@ -80,6 +82,25 @@ const PAUSABLE = new Set<string>([
 
 export async function runRoutes(fastify: FastifyInstance): Promise<void> {
   const { db, queues } = fastify.gameforge;
+
+  fastify.get('/projects/:id/runs', async (req) => {
+    const { id: projectId } = req.params as { id: string };
+    await requireProject(db, projectId);
+    const { page: p, pageSize: ps } = parseOr400(paginationSchema, req.query);
+    const offset = (p - 1) * ps;
+    const [{ rows: countRows }, { rows }] = await Promise.all([
+      db.query<{ total: string }>(
+        `SELECT COUNT(*)::text AS total FROM agent_runs WHERE project_id = $1`,
+        [projectId],
+      ),
+      db.query<RunRow>(
+        `SELECT ${RUN_COLS} FROM agent_runs WHERE project_id = $1
+         ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+        [projectId, ps, offset],
+      ),
+    ]);
+    return page(rows.map(toRunJson), Number(countRows[0]?.total ?? 0), p, ps);
+  });
 
   fastify.post(
     '/projects/:id/runs',
