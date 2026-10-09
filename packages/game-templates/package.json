@@ -1,0 +1,1 @@
+{"description":"Eight functional starter game templates for GameForge AI Studio. No build step: index.html + ES modules. Zero npm dependencies inside templates.","devDependencies":{"typescript":"^5.9.0","vitest":"^3.0.0"},"name":"@gameforge/game-templates","scripts":{"test":"vitest run","typecheck":"tsc --noEmit -p tsconfig.json"},"type":"module","version":"0.1.0"}

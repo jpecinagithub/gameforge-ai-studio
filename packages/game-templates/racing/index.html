@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Racing — GameForge template</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e14; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 12px; left: 12px; color: #cbd5e1;
+    font: 13px/1.5 system-ui, sans-serif; background: rgba(2,6,23,.55);
+    padding: 8px 12px; border-radius: 8px; pointer-events: none;
+  }
+  #hud b { color: #f87171; }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">racing</div>
+<div style="position:fixed;bottom:12px;left:12px;color:#64748b;font:12px system-ui">W/↑ throttle · S/↓ brake · A/D steer</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

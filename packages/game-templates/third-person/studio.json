@@ -1,0 +1,1 @@
+{"contractVersion":1,"entry":"index.html","kind":"third-person","main":"src/main.js","traits":["wasd","jump","follow-camera","platform-collisions","seeded"]}

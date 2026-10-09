@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="40" fill="#0a0a0f"/>
+  <!-- Hex-nut mark: anvil of the forge. Original geometric design. -->
+  <g fill="none" stroke="url(#g)" stroke-width="11" stroke-linejoin="round">
+    <path d="M96 34 L150 65 V127 L96 158 L42 127 V65 Z"/>
+  </g>
+  <g fill="none" stroke="url(#g)" stroke-width="11" stroke-linecap="round">
+    <path d="M96 66 V96"/>
+    <path d="M78 106 L96 126 L114 106"/>
+  </g>
+  <circle cx="96" cy="96" r="7" fill="url(#g)"/>
+</svg>

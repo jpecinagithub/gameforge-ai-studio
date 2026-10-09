@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon-192.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta
+      name="description"
+      content="GameForge AI Studio — describe a game in natural language; AI agents build, test and preview it."
+    />
+    <title>GameForge AI Studio</title>
+    <script>
+      // Apply the persisted theme before first paint (avoids a light-mode flash).
+      // Default is dark; prefers-color-scheme is only consulted on first visit.
+      (function () {
+        try {
+          var t = localStorage.getItem('gameforge-theme');
+          if (!t) {
+            t =
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+          }
+          document.documentElement.classList.toggle('dark', t === 'dark');
+          document.documentElement.lang =
+            localStorage.getItem('gameforge-lang') || 'en';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

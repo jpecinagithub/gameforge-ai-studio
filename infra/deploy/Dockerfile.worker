@@ -1,0 +1,30 @@
+# ---- build stage ----
+FROM node:22-bookworm-slim AS build
+WORKDIR /build
+COPY package.json package-lock.json ./
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/shared/package.json ./packages/shared/
+RUN npm ci --no-audit --no-fund
+COPY tsconfig.base.json ./
+COPY packages/shared/ ./packages/shared/
+COPY apps/worker/ ./apps/worker/
+RUN npm run build --workspace=@gameforge/shared \
+ && npm run build --workspace=gameforge-worker
+
+# ---- runtime stage ----
+FROM node:22-bookworm-slim AS runtime
+ENV NODE_ENV=production
+# Non-root service user. The worker never touches the Docker socket.
+RUN useradd --uid 65532 --create-home --shell /usr/sbin/nologin app
+WORKDIR /srv/app
+COPY package.json package-lock.json ./
+COPY apps/worker/package.json ./apps/worker/
+COPY packages/shared/package.json ./packages/shared/
+RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
+COPY --from=build /build/packages/shared/dist ./packages/shared/dist
+COPY --from=build /build/apps/worker/dist ./apps/worker/dist
+RUN mkdir -p /var/lib/gameforge && chown app:app /var/lib/gameforge
+USER 65532:65532
+# No HTTP port: health is the BullMQ queue heartbeat, surfaced at
+# GET /api/v1/system/metrics (see docs/ARCHITECTURE.md). No fake healthcheck.
+CMD ["node", "apps/worker/dist/index.js"]

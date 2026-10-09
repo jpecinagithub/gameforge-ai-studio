@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Secrets — NEVER commit. The server .env holds GROQ_API_KEY, POSTGRES_PASSWORD.
+.env
+infra/deploy/.env
+*.env.local
+
+# Storage (project repos, uploads, artifacts, backups) — host data, not code.
+/var/lib/gameforge/
+storage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Test / coverage artifacts
+coverage/
+*.log

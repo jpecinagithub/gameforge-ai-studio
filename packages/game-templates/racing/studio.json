@@ -1,0 +1,1 @@
+{"contractVersion":1,"entry":"index.html","kind":"racing","main":"src/main.js","traits":["chase-camera","lap-timer","checkpoints","offtrack-penalty","seeded-track","spline"]}

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": [
+      "node"
+    ],
+    "rootDir": "../.."
+  },
+  "include": [
+    "src/acceptance/**/*.ts",
+    "../../apps/api/src/exportZip.ts",
+    "../../apps/api/src/routes/assets.ts"
+  ]
+}

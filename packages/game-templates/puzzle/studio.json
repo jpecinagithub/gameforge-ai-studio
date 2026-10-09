@@ -1,0 +1,1 @@
+{"contractVersion":1,"entry":"index.html","kind":"static-board","main":"src/main.js","traits":["canvas2d","sliding-puzzle","seeded-shuffle","solved-detection","click-input"]}

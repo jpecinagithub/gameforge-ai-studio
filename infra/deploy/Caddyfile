@@ -1,0 +1,70 @@
+# GameForge AI Studio — reverse proxy.
+# Two origins (see docs/ARCHITECTURE.md §8):
+#   1. main app origin  — control UI + /api/v1 + SSE   → api:8090
+#   2. preview origin   — untrusted game content       → api:8091 (Phase 3)
+# Never serve game content from the main origin.
+#
+# First boot: copy .env.example → .env and set GF_DOMAIN (+ GF_ACME_EMAIL).
+# Without a domain, replace {$GF_DOMAIN} with :80 for IP-only testing
+# (no TLS — do not expose that publicly; see docs/THREAT_MODEL.md §5).
+
+{
+	email {$GF_ACME_EMAIL:}
+	# Shorter cert renewal retries; defaults are fine otherwise.
+}
+
+{$GF_DOMAIN} {
+	# --- API + control plane ---
+	handle /api/* {
+		reverse_proxy api:8090
+	}
+
+	# --- SSE event streams: disable buffering, generous timeouts ---
+	handle /events/* {
+		reverse_proxy api:8090 {
+			flush_interval -1
+		}
+	}
+
+	# --- everything else (the SPA; the API serves it in Phase 3) ---
+	handle {
+		reverse_proxy api:8090
+	}
+
+	# Hardening headers for the control origin.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Remove server fingerprinting.
+		-Server
+	}
+
+	# Request size guard (asset uploads go through the API's own limits too).
+	request_body {
+		max_size 25MB
+	}
+}
+
+# --- Preview origin: hosts UNTRUSTED generated game content. ---
+# The games run inside sandboxed iframes (opaque origin); this header is
+# defense-in-depth on top. The page server (Phase 3) sets per-game headers.
+preview.{$GF_DOMAIN} {
+	reverse_proxy api:8091
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		# No framing of the preview origin by anyone except the studio UI.
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: data:; style-src 'self' 'unsafe-inline' blob: data:; img-src 'self' blob: data:; media-src 'self' blob: data:; font-src 'self' blob: data:; connect-src 'self' blob: data:; worker-src 'self' blob:; frame-ancestors https://{$GF_DOMAIN}"
+		Cross-Origin-Opener-Policy "same-origin"
+		Cross-Origin-Embedder-Policy "require-corp"
+		-Server
+	}
+
+	request_body {
+		max_size 5MB
+	}
+}

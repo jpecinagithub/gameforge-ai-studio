@@ -1,0 +1,1 @@
+{"contractVersion":1,"entry":"index.html","kind":"side-2d","main":"src/main.js","traits":["canvas2d","breakout","score","lives","win-condition","seeded","touch-support"]}

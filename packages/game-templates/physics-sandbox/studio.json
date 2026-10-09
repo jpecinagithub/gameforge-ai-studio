@@ -1,0 +1,1 @@
+{"contractVersion":1,"entry":"index.html","kind":"free-camera","main":"src/main.js","traits":["inline-physics","aabb","impulse","click-to-spawn","seeded","stacking"]}

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:,">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Third Person — GameForge template</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0e14; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; top: 12px; left: 12px; color: #cbd5e1;
+    font: 13px/1.5 system-ui, sans-serif; background: rgba(2,6,23,.55);
+    padding: 8px 12px; border-radius: 8px; pointer-events: none;
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<div id="hud">third-person · WASD move · Space jump · climb the platforms</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+{"dependencies":{"@gameforge/shared":"*","zod":"^4.0.0"},"devDependencies":{"typescript":"^5.9.0","vitest":"^3.0.0"},"exports":{".":"./dist/index.js"},"main":"./dist/index.js","name":"@gameforge/model-providers","scripts":{"build":"tsc -p tsconfig.json","test":"vitest run","typecheck":"tsc --noEmit -p tsconfig.json"},"type":"module","types":"./dist/index.d.ts","version":"0.1.0"}
