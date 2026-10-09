@@ -64,6 +64,9 @@ COPY --from=build /build/packages/test-runner/dist ./packages/test-runner/dist
 COPY --from=build /build/apps/runner/dist ./apps/runner/dist
 COPY --from=build /build/apps/worker/dist ./apps/worker/dist
 RUN mkdir -p /var/lib/gameforge && chown app:app /var/lib/gameforge
+# git is spawned at runtime (build checkouts). Install before dropping root.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
 USER 65532:65532
 # No HTTP port: health is the BullMQ queue heartbeat, surfaced at
 # GET /api/v1/system/metrics (see docs/ARCHITECTURE.md). No fake healthcheck.

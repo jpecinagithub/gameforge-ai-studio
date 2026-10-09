@@ -57,6 +57,9 @@ COPY --from=build /build/apps/api/dist ./apps/api/dist
 COPY --from=build /build/infra/db/migrations ./infra/db/migrations
 # STORAGE_ROOT is bind-mounted at runtime (see docker-compose.yml)
 RUN mkdir -p /var/lib/gameforge && chown app:app /var/lib/gameforge
+# git is spawned at runtime (project repo init). Install before dropping root.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+ && rm -rf /var/lib/apt/lists/*
 USER 65532:65532
 EXPOSE 8090
 # Assumes apps/api package.json "main" is ./dist/index.js (Fastify bootstrap).
