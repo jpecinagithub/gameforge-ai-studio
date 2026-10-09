@@ -14,6 +14,8 @@ export const AgentCoreErrorCode = {
   CONFLICT: 'conflict',
   /** The director exceeded its per-turn tool-call round budget. */
   ITERATION_BUDGET_EXHAUSTED: 'iteration_budget_exhausted',
+  /** The director finished its turn with zero tool calls (model did not act). */
+  DIRECTOR_IDLE: 'director_idle',
   /** External abort requested (pause/cancel) via the shouldAbort hook. */
   ABORTED: 'aborted',
   GIT_FAILED: 'git_failed',

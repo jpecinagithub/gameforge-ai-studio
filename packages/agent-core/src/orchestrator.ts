@@ -340,6 +340,17 @@ export async function runMultiAgentJob(
     finished: directorTurn.finished,
   });
 
+  if (directorTurn.stepsTaken === 0) {
+    // The director produced no actions at all: fail honestly instead of
+    // building an empty worktree and reporting a misleading "completed" run.
+    throw new AgentCoreError(
+      AgentCoreErrorCode.DIRECTOR_IDLE,
+      'Director finished its turn with 0 tool calls: no tasks were dispatched and no files were touched. Failing the run instead of building nothing.',
+      StopCode.NO_MEASURABLE_PROGRESS,
+      { stepsTaken: directorTurn.stepsTaken },
+    );
+  }
+
   // ---- 2. Manual mode: approval gate before any build. ----
   if (runMode === 'manual') {
     await executeToolCall(

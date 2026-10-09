@@ -376,6 +376,20 @@ describe('runMultiAgentJob', () => {
     expect(res.buildStatus).toBe(BuildStatus.VERIFIED);
   });
 
+  it('director that never calls tools fails the run honestly (DIRECTOR_IDLE)', async () => {
+    const { opts } = await makeHarness([BuildStatus.VERIFIED]);
+    // 3 text-only responses exhaust the re-prompts; the turn ends with 0 steps.
+    const provider = scriptedProvider([
+      text('I will think about it.'),
+      text('Still thinking.'),
+      text('Almost decided.'),
+    ]);
+    const err = await runMultiAgentJob(withProvider(opts, provider)).catch((e) => e);
+    expect(err).toBeInstanceOf(AgentCoreError);
+    expect((err as AgentCoreError).code).toBe(AgentCoreErrorCode.DIRECTOR_IDLE);
+    expect((err as AgentCoreError).stopCode).toBe(StopCode.NO_MEASURABLE_PROGRESS);
+  });
+
   it('manual mode pauses at the approval gate (PauseForUser)', async () => {
     const { opts } = await makeHarness([BuildStatus.VERIFIED]);
     const provider = scriptedProvider([finish('director done')]);

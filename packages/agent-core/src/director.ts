@@ -112,6 +112,10 @@ export async function runAgentTurn(
   ];
 
   let stepsTaken = 0;
+  // Consecutive text-only responses: the model is not acting through tools.
+  // Nudge it a few times before giving up the turn as unfinished.
+  let textOnlyStrikes = 0;
+  const MAX_TEXT_ONLY_STRIKES = 3;
 
   for (let round = 1; round <= maxRounds; round++) {
     const abort = await opts.shouldAbort?.();
@@ -140,13 +144,25 @@ export async function runAgentTurn(
     });
 
     if (res.toolCalls.length === 0) {
-      return {
-        summary: res.content ?? '',
-        stepsTaken,
-        tokensUsed: budgets.snapshot().usedTokens,
-        finished: false,
-      };
+      textOnlyStrikes += 1;
+      if (textOnlyStrikes >= MAX_TEXT_ONLY_STRIKES) {
+        return {
+          summary: res.content ?? '',
+          stepsTaken,
+          tokensUsed: budgets.snapshot().usedTokens,
+          finished: false,
+        };
+      }
+      // Text-only response: nudge the model to act through tools instead of
+      // ending the turn with zero progress.
+      messages.push({
+        role: 'user',
+        content:
+          'That response made no progress toward the objective. You must call one of the available tools to advance the task — text alone does not count. Call the appropriate tool now.',
+      });
+      continue;
     }
+    textOnlyStrikes = 0;
 
     // Echo the assistant's tool calls back (OpenAI wire format needs them).
     messages.push({

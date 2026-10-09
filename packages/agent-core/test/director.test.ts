@@ -255,8 +255,13 @@ describe('runDirectorTurn', () => {
     expect((err as AgentCoreError).stopCode).toBe(StopCode.ITERATION_BUDGET_EXHAUSTED);
   });
 
-  it('a model that stops calling tools returns unfinished with its text', async () => {
-    const provider = scriptedProvider([reply([], 'I need more information first.')]);
+  it('a model that stops calling tools is re-prompted, then returns unfinished', async () => {
+    const textReply = 'I need more information first.';
+    const provider = scriptedProvider([
+      reply([], textReply),
+      reply([], textReply),
+      reply([], textReply),
+    ]);
     const res = await runDirectorTurn({
       runId: 'run_director_test',
       workDir: spy.workDir,
@@ -267,7 +272,28 @@ describe('runDirectorTurn', () => {
       userRequest: 'Hi.',
     });
     expect(res.finished).toBe(false);
-    expect(res.summary).toBe('I need more information first.');
+    expect(res.summary).toBe(textReply);
     expect(res.stepsTaken).toBe(0);
+    // 1 initial + 2 re-prompts before giving up (3rd strike ends the turn).
+    expect(provider.chatCompletions).toHaveBeenCalledTimes(3);
+  });
+
+  it('a nudge after a text-only response can get the model calling tools again', async () => {
+    const provider = scriptedProvider([
+      reply([], 'Let me think…'),
+      reply([{ name: 'listFiles', args: {} }], null),
+      reply([{ name: 'finishRun', args: { summary: 'done' } }], null),
+    ]);
+    const res = await runDirectorTurn({
+      runId: 'run_director_test',
+      workDir: spy.workDir,
+      ctx: spy.ctx,
+      provider,
+      registry,
+      budgets: new BudgetTracker({}),
+      userRequest: 'Hi.',
+    });
+    expect(res.finished).toBe(true);
+    expect(res.stepsTaken).toBe(2);
   });
 });
