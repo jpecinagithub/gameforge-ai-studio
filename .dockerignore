@@ -1,0 +1,11 @@
+# Build context is the repo root (see docker-compose.yml). Keep it lean:
+# the images rebuild TypeScript themselves, so no prebuilt output or VCS data.
+node_modules
+.git
+research
+dist
+**/dist
+.env
+*.bak
+*.bak-*
+tailscale-certs
