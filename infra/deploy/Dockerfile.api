@@ -22,6 +22,7 @@ COPY packages/shared/ ./packages/shared/
 COPY packages/model-providers/ ./packages/model-providers/
 COPY packages/plugin-sdk/ ./packages/plugin-sdk/
 COPY apps/api/ ./apps/api/
+COPY infra/db/migrations/ ./infra/db/migrations/
 # Internal packages must be built in dependency order: dependents resolve
 # @gameforge/* through node_modules symlinks into each package's dist/.
 RUN npm run build --workspace=@gameforge/shared \
@@ -53,6 +54,7 @@ COPY --from=build /build/packages/shared/dist ./packages/shared/dist
 COPY --from=build /build/packages/model-providers/dist ./packages/model-providers/dist
 COPY --from=build /build/packages/plugin-sdk/dist ./packages/plugin-sdk/dist
 COPY --from=build /build/apps/api/dist ./apps/api/dist
+COPY --from=build /build/infra/db/migrations ./infra/db/migrations
 # STORAGE_ROOT is bind-mounted at runtime (see docker-compose.yml)
 RUN mkdir -p /var/lib/gameforge && chown app:app /var/lib/gameforge
 USER 65532:65532
