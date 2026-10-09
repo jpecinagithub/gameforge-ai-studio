@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildServer } from '../src/server.js';
 import type { DbClient } from '../src/db.js';
 import type { QueueClient } from '../src/queue.js';
+import { sanitizeJobId } from '../src/queue.js';
 import type { GitRunner } from '../src/git.js';
 import type { ServerDeps, ModelProviders } from '../src/types.js';
 
@@ -181,6 +182,14 @@ describe('validation', () => {
 });
 
 describe('runs idempotency', () => {
+  it('sanitizeJobId removes colons forbidden by BullMQ, deterministically', () => {
+    expect(sanitizeJobId('msg:01JABC')).toBe('msg-01JABC');
+    expect(sanitizeJobId('run:proj:uuid-123')).toBe('run-proj-uuid-123');
+    expect(sanitizeJobId('plain-id')).toBe('plain-id');
+    // Deterministic: same input always maps to the same jobId (dedup intact).
+    expect(sanitizeJobId('msg:01JABC')).toBe(sanitizeJobId('msg:01JABC'));
+  });
+
   const RUN_ROW = {
     id: 'run_01JTEST123',
     project_id: PROJECT_ROW.id,

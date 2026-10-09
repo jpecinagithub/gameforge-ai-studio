@@ -23,6 +23,15 @@ export interface QueueClient {
 
 const QUEUE_NAMES = ['agent-runs', 'builds', 'asset-generations', 'maintenance'] as const;
 
+/**
+ * BullMQ forbids ':' in custom job ids, but our idempotency keys use it
+ * (`msg:<id>`, `run:<projectId>:<uuid>`). Sanitize centrally so every caller
+ * is protected; the mapping is deterministic so dedup still works.
+ */
+export function sanitizeJobId(jobId: string): string {
+  return jobId.replace(/:/g, '-');
+}
+
 export function createQueueClient(): QueueClient {
   const redisUrl = process.env.REDIS_URL;
   let connection: Redis | null = null;
@@ -60,7 +69,7 @@ export function createQueueClient(): QueueClient {
     try {
       const q = ensure()[queueName];
       await q.add(name, data, {
-        ...(opts?.jobId ? { jobId: opts.jobId } : {}),
+        ...(opts?.jobId ? { jobId: sanitizeJobId(opts.jobId) } : {}),
         attempts: 3,
         backoff: { type: 'exponential', delay: 5000 },
         removeOnComplete: 1000,
