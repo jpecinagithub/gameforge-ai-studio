@@ -375,7 +375,9 @@ export function Studio() {
             <div className="flex items-center justify-between gap-2">
               <StatusPill kind="build" status={b.status} />
               <span className="font-mono text-xs text-zinc-500">
-                {t('builds.revision', { sha: b.revision_sha.slice(0, 7) })}
+                {b.revision_sha
+                  ? t('builds.revision', { sha: b.revision_sha.slice(0, 7) })
+                  : t('builds.noRevision')}
               </span>
             </div>
             {b.verdict?.summary && (

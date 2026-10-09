@@ -42,7 +42,8 @@ export interface AgentRun {
 export interface BuildJob {
   id: string;
   project_id: string;
-  revision_sha: string;
+  /** Null when the build failed before producing a revision. */
+  revision_sha: string | null;
   status: BuildStatusValue;
   /** Served preview URL for this build's artifact (preview origin). Set when available. */
   preview_url?: string | null;

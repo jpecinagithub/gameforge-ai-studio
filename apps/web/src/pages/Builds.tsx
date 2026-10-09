@@ -114,7 +114,11 @@ function BuildDetail({
 
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <div className="text-xs text-zinc-500">
-            <p>{t('buildDetail.revision', { sha: build.revision_sha.slice(0, 12) })}</p>
+            <p>
+              {build.revision_sha
+                ? t('buildDetail.revision', { sha: build.revision_sha.slice(0, 12) })
+                : t('builds.noRevision')}
+            </p>
             <p>{fmtDateTime(build.created_at)}</p>
             {build.preview_url && (
               <a
@@ -423,7 +427,9 @@ export function Builds() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusPill kind="build" status={b.status} />
                     <span className="font-mono text-xs text-zinc-500">
-                      {t('builds.revision', { sha: b.revision_sha.slice(0, 7) })}
+                      {b.revision_sha
+                        ? t('builds.revision', { sha: b.revision_sha.slice(0, 7) })
+                        : t('builds.noRevision')}
                     </span>
                   </div>
                   {b.verdict?.summary && (
