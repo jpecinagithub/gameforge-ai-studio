@@ -221,6 +221,11 @@ export class CloudflareClient {
     if (opts.maxTokens !== undefined) body.max_tokens = opts.maxTokens;
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
+    // Debug: log the exact request body when CF_DEBUG_REQUEST=1 (diagnosing 400s).
+    if (process.env.CF_DEBUG_REQUEST === '1') {
+      console.log('[cf-debug] chat completions request:', JSON.stringify(body).slice(0, 4000));
+    }
+
     const res = await this.request(
       'POST',
       this.chatUrl(),
