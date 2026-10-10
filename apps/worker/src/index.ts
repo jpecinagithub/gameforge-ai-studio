@@ -7,7 +7,7 @@ import {
   createSecretRedactor,
   newBuildId,
 } from '@gameforge/shared';
-import { CloudflareClient, ModelRegistry } from '@gameforge/model-providers';
+import { CloudflareClient, AlibabaClient, ModelRegistry } from '@gameforge/model-providers';
 import type { EvidenceProvider } from '@gameforge/agent-core';
 import { createQueues, QUEUE_NAMES } from './queues.js';
 import { processAgentRun, type DirectorQueues } from './runProcessor.js';
@@ -65,21 +65,28 @@ async function main() {
     end: () => pgPool.end(),
   };
 
-  // LLM wiring. No key → the director fails closed with a typed error
-  // (processAgentRun), never a fake run.
-  const provider =
-    process.env['CLOUDFLARE_API_TOKEN'] && process.env['CLOUDFLARE_ACCOUNT_ID']
-      ? new CloudflareClient({
-          apiToken: process.env['CLOUDFLARE_API_TOKEN'],
-          accountId: process.env['CLOUDFLARE_ACCOUNT_ID'],
-        })
-      : null;
+  // LLM wiring. Alibaba takes priority when ALIBABA_API_KEY is set (Jon has 1M
+  // free tokens per model). Otherwise falls back to Cloudflare. No key →
+  // the director fails closed with a typed error (processAgentRun), never a fake run.
+  // Note: AlibabaClient is structurally compatible with CloudflareClient for
+  // the chatCompletions interface used by the agent.
+  const provider: CloudflareClient | AlibabaClient | null =
+    process.env['ALIBABA_API_KEY']
+      ? (new AlibabaClient({ apiKey: process.env['ALIBABA_API_KEY'] }) as unknown as CloudflareClient)
+      : process.env['CLOUDFLARE_API_TOKEN'] && process.env['CLOUDFLARE_ACCOUNT_ID']
+        ? new CloudflareClient({
+            apiToken: process.env['CLOUDFLARE_API_TOKEN'],
+            accountId: process.env['CLOUDFLARE_ACCOUNT_ID'],
+          })
+        : null;
   if (!provider)
-    jsonLog('warn', 'CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID not set; agent runs will fail closed');
+    jsonLog('warn', 'No LLM provider configured; agent runs will fail closed');
+  else if (process.env['ALIBABA_API_KEY'])
+    jsonLog('info', 'Using Alibaba Model Studio as LLM provider');
   const registry = new ModelRegistry();
-  if (provider) {
+  if (provider && !process.env['ALIBABA_API_KEY']) {
     try {
-      await registry.refresh(provider);
+      await registry.refresh(provider as CloudflareClient);
       jsonLog('info', 'model registry refreshed from Cloudflare Workers AI');
     } catch (err) {
       jsonLog('warn', 'model registry refresh failed; curated table remains', {

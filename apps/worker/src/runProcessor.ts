@@ -20,6 +20,7 @@ import { createPgTaskStore } from './taskStore.js';
 import {
   BudgetExhaustedError,
   type CloudflareClient,
+  type AlibabaClient,
   type ModelRegistry,
 } from '@gameforge/model-providers';
 import type { DbPool } from './db.js';
@@ -69,8 +70,8 @@ export interface ProcessorDeps {
   redactor: Pick<SecretRedactor, 'redactDeep'>;
   log: (msg: string, fields?: Record<string, unknown>) => void;
   storageRoot: string;
-  /** Null when CLOUDFLARE_API_TOKEN/CLOUDFLARE_ACCOUNT_ID are not configured — runs fail closed with a typed error. */
-  provider: CloudflareClient | null;
+  /** Null when no LLM provider is configured — runs fail closed with a typed error. */
+  provider: CloudflareClient | AlibabaClient | null;
   registry: ModelRegistry;
   queues: DirectorQueues;
   evidence: EvidenceProvider;

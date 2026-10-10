@@ -35,9 +35,13 @@ import {
   BudgetTracker,
   type BudgetLimits,
   type CloudflareClient,
+  type AlibabaClient,
   type ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
+
+/** LLM provider: Cloudflare or Alibaba (both expose chatCompletions). */
+export type LlmProvider = CloudflareClient | AlibabaClient;
 import { AgentCoreError, AgentCoreErrorCode, isPauseForUser } from './errors.js';
 import {
   createGitOps,
@@ -84,7 +88,7 @@ export interface MultiAgentJobOptions {
   queues: QueuesLike;
   workDir: string;
   userRequest: string;
-  provider: CloudflareClient;
+  provider: LlmProvider;
   registry: ModelRegistry;
   budgets?: BudgetLimits;
   evidence: EvidenceProvider;
@@ -286,7 +290,7 @@ interface SingleShotJobOptions {
   runId: string;
   workDir: string;
   userRequest: string;
-  provider: CloudflareClient;
+  provider: LlmProvider;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   git: ReturnType<typeof createGitOps>;
@@ -509,7 +513,7 @@ export async function runMultiAgentJob(
         evidence: incumbentEvidence,
       };
       review = await blindReview({
-        provider: opts.provider,
+        provider: opts.provider as CloudflareClient,
         registry: opts.registry,
         budgets,
         candidateA,

@@ -18,6 +18,7 @@ import {
   computeCost,
   BudgetTracker,
   CloudflareClient,
+  type AlibabaClient,
   ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -44,7 +45,7 @@ export interface DirectorTurnOptions {
   runId: string;
   workDir: string;
   ctx: ToolContext;
-  provider: CloudflareClient;
+  provider: CloudflareClient | AlibabaClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   /** The user's natural-language request (and any follow-up). */
@@ -272,7 +273,7 @@ const DEFAULT_MAX_ROUNDS = 30;
 export interface SingleShotOptions {
   runId: string;
   userRequest: string;
-  provider: CloudflareClient;
+  provider: CloudflareClient | AlibabaClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   ctx: ToolContext;
@@ -323,14 +324,19 @@ function extractJson(text: string): Record<string, unknown> {
 export async function runSingleShotDirector(
   opts: SingleShotOptions,
 ): Promise<SingleShotResult> {
-  const model = opts.registry.selectModel({
-    role: 'director',
-    // Single-shot needs reliable TEXT generation.
-    // Use tool-capable filter to exclude vision models, but prefer SMALLER
-    // models (qwen 32k): they 400 less than the 131k giants.
-    requiresTools: true,
-    preferLarge: false,
-  });
+  // Model selection: use Alibaba when configured (Jon has free quota),
+  // otherwise use Cloudflare registry.
+  let model: string;
+  if (process.env['ALIBABA_API_KEY']) {
+    // Alibaba models (from Jon's free quota): deepseek-v4-flash is enabled.
+    model = 'deepseek-v4-flash-0731';
+  } else {
+    model = opts.registry.selectModel({
+      role: 'director',
+      requiresTools: true,
+      preferLarge: false,
+    });
+  }
 
   const messages: ChatMessage[] = [
     { role: 'system', content: SINGLE_SHOT_SYSTEM_PROMPT },
