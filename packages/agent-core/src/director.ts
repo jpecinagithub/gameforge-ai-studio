@@ -325,7 +325,10 @@ export async function runSingleShotDirector(
 ): Promise<SingleShotResult> {
   const model = opts.registry.selectModel({
     role: 'director',
-    requiresTools: false, // No tools needed in single-shot mode.
+    // Require tools capability to get a text model (not vision).
+    // We don't actually call tools in single-shot mode, but this filters
+    // out vision-only models that 400 on text chat completions.
+    requiresTools: true,
     preferLarge: true,
   });
 
