@@ -54,7 +54,11 @@ const CURATED: Record<string, ModelCapabilities> = {
   },
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast': {
     context_window: 131072,
-    supports_tools: true,
+    // PERMANENTLY EXCLUDED 2026-10-10: Intermittent HTTP 400 on
+    // /ai/v1/chat/completions with tool_calls. The model calls tools
+    // correctly but Cloudflare rejects the requests unpredictably.
+    // Re-enable only if Cloudflare fixes the endpoint.
+    supports_tools: false,
     supports_vision: false,
     supports_json_mode: true,
   },
