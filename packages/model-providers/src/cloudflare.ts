@@ -221,9 +221,19 @@ export class CloudflareClient {
     if (opts.maxTokens !== undefined) body.max_tokens = opts.maxTokens;
     if (opts.temperature !== undefined) body.temperature = opts.temperature;
 
-    // Debug: log the exact request body when CF_DEBUG_REQUEST=1 (diagnosing 400s).
+    // Debug: log the exact request structure when CF_DEBUG_REQUEST=1 (diagnosing 400s).
+    // Logs model, message roles/content types (not full text), and tool names.
     if (process.env.CF_DEBUG_REQUEST === '1') {
-      console.log('[cf-debug] chat completions request:', JSON.stringify(body).slice(0, 4000));
+      const msgSummary = (opts.messages || []).map((m: any, i: number) => ({
+        idx: i,
+        role: m.role,
+        contentType: m.content === null ? 'null' : Array.isArray(m.content) ? 'array' : typeof m.content,
+        hasToolCalls: !!m.tool_calls,
+        toolCallId: m.tool_call_id || undefined,
+      }));
+      console.log('[cf-debug] model:', opts.model);
+      console.log('[cf-debug] messages:', JSON.stringify(msgSummary));
+      console.log('[cf-debug] tools:', (opts.tools || []).map((t: any) => t.function?.name).join(','));
     }
 
     const res = await this.request(
