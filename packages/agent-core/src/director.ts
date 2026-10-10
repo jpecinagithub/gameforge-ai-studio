@@ -328,8 +328,9 @@ export async function runSingleShotDirector(
   // otherwise use Cloudflare registry.
   let model: string;
   if (process.env['ALIBABA_API_KEY']) {
-    // Alibaba models (from Jon's free quota): deepseek-v4-flash is enabled.
-    model = 'deepseek-v4-flash-0731';
+    // Alibaba models (from Jon's free quota). Qwen is Alibaba's own model,
+    // more reliable on their platform than DeepSeek.
+    model = 'qwen3.8-max-0902';
   } else {
     model = opts.registry.selectModel({
       role: 'director',
