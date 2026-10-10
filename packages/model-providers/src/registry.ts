@@ -54,7 +54,10 @@ const CURATED: Record<string, ModelCapabilities> = {
   },
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast': {
     context_window: 131072,
-    supports_tools: true,
+    // NOTE: Set to false because this model 400s on /ai/v1/chat/completions
+    // with tool_calls (strict validation). Exclude from tool-requiring roles
+    // until Cloudflare fixes the endpoint compatibility.
+    supports_tools: false,
     supports_vision: false,
     supports_json_mode: true,
   },
@@ -84,7 +87,13 @@ const CURATED: Record<string, ModelCapabilities> = {
   },
   '@cf/qwen/qwen2.5-coder-32b-instruct': {
     context_window: 32768,
-    supports_tools: true,
+    // Corrected 2026-10-10: Cloudflare's own model page
+    // (developers.cloudflare.com/workers-ai/models/qwen2.5-coder-32b-instruct/)
+    // lists NO "Function calling" property for this model (tags: Cloudflare-hosted,
+    // LoRA only). It was picked as the director precisely because its small window
+    // sorted first — and silently ignored every tool call. Verified against the
+    // live catalog; do not re-enable without a passing live probe.
+    supports_tools: false,
     supports_vision: false,
     supports_json_mode: true,
   },
