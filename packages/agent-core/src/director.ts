@@ -325,11 +325,11 @@ export async function runSingleShotDirector(
 ): Promise<SingleShotResult> {
   const model = opts.registry.selectModel({
     role: 'director',
-    // Require tools capability to get a text model (not vision).
-    // We don't actually call tools in single-shot mode, but this filters
-    // out vision-only models that 400 on text chat completions.
+    // Single-shot needs reliable TEXT generation.
+    // Use tool-capable filter to exclude vision models, but prefer SMALLER
+    // models (qwen 32k): they 400 less than the 131k giants.
     requiresTools: true,
-    preferLarge: true,
+    preferLarge: false,
   });
 
   const messages: ChatMessage[] = [
