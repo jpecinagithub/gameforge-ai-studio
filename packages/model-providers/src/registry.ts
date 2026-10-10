@@ -82,7 +82,8 @@ const CURATED: Record<string, ModelCapabilities> = {
   },
   '@cf/mistralai/mistral-small-3.1-24b-instruct': {
     context_window: 131072,
-    supports_tools: true,
+    // EXCLUDED 2026-10-10: Does not call tools (DIRECTOR_IDLE, 0 steps).
+    supports_tools: false,
     supports_vision: false,
     supports_json_mode: true,
   },
