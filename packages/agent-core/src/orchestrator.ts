@@ -185,7 +185,9 @@ function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
         if (!dep || dep.status !== 'completed') {
           throw new AgentCoreError(
             AgentCoreErrorCode.DEPENDENCY_FAILED,
-            `dispatchTask: dependency ${depId} is not completed`,
+            `dispatchTask: dependency "${depId}" not found or not completed. ` +
+              `dependsOn requires exact task IDs returned by previous dispatchTask calls. ` +
+              `Dispatch independent tasks first (without dependsOn), then use their IDs.`,
             StopCode.INTERRUPTED,
             { role, depId },
           );

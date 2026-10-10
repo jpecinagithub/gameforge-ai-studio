@@ -358,7 +358,10 @@ const dispatchTask: ToolDef<{ role: AgentRole; objective: string; dependsOn?: st
     'Dispatch a specialized sub-agent task (Phase 4 orchestration). The role agent ' +
     'runs with its restricted toolset in an isolated git worktree; its validated ' +
     'result is merged back. Roles: gameplay, scene_visual, ui, asset, qa, reviewer. ' +
-    'Use dependsOn with task IDs when ordering matters.',
+    'CRITICAL: Dispatch tasks in dependency order. First dispatch independent tasks ' +
+    '(no dependsOn), wait for their task IDs in the response, THEN dispatch dependent ' +
+    'tasks using those exact IDs in dependsOn. NEVER use descriptions, names, or ' +
+    'guessed IDs in dependsOn — only IDs returned by previous dispatchTask calls.',
   schema: z.object({
     role: z.enum(AGENT_ROLES),
     objective: z.string().min(1).max(2000),
