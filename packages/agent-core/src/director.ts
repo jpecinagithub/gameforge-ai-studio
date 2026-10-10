@@ -167,10 +167,12 @@ export async function runAgentTurn(
     }
     textOnlyStrikes = 0;
 
-    // Echo the assistant's tool calls back (OpenAI wire format needs them).
+    // Echo the assistant's tool calls back. Cloudflare's chat completions
+    // validation is strict: when tool_calls are present, content MUST be null
+    // (not the model's text). OpenAI tolerates both; Cloudflare 400s otherwise.
     messages.push({
       role: 'assistant',
-      content: res.content,
+      content: null,
       tool_calls: res.toolCalls.map((c) => ({
         id: c.id,
         type: 'function',
