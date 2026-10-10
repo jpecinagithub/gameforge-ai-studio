@@ -54,10 +54,7 @@ const CURATED: Record<string, ModelCapabilities> = {
   },
   '@cf/meta/llama-3.3-70b-instruct-fp8-fast': {
     context_window: 131072,
-    // NOTE: Set to false because this model 400s on /ai/v1/chat/completions
-    // with tool_calls (strict validation). Exclude from tool-requiring roles
-    // until Cloudflare fixes the endpoint compatibility.
-    supports_tools: false,
+    supports_tools: true,
     supports_vision: false,
     supports_json_mode: true,
   },
