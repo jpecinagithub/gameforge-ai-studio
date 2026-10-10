@@ -68,6 +68,7 @@ export const StopCode = {
   TIME_BUDGET_EXHAUSTED: 'time_budget_exhausted',
   ITERATION_BUDGET_EXHAUSTED: 'iteration_budget_exhausted',
   NO_MEASURABLE_PROGRESS: 'no_measurable_progress',
+  INVALID_RESPONSE: 'invalid_response',
   USER_STOPPED: 'user_stopped',
   USER_PAUSED: 'user_paused',
   CANCELED: 'canceled',

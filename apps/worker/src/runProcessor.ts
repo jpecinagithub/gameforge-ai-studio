@@ -319,6 +319,8 @@ export async function processAgentRun(
         taskStore: createPgTaskStore(pool),
         runMode,
         incumbentBuildId: incumbent?.last_good_build_id ?? null,
+        // Single-shot mode: bypass unreliable tool-calling, generate game as JSON.
+        singleShot: true,
       });
       result = {
         summary: multi.summary,

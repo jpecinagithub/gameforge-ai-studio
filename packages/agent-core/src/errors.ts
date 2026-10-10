@@ -16,6 +16,8 @@ export const AgentCoreErrorCode = {
   ITERATION_BUDGET_EXHAUSTED: 'iteration_budget_exhausted',
   /** The director finished its turn with zero tool calls (model did not act). */
   DIRECTOR_IDLE: 'director_idle',
+  /** Single-shot director returned invalid/non-JSON response. */
+  INVALID_RESPONSE: 'invalid_response',
   /** External abort requested (pause/cancel) via the shouldAbort hook. */
   ABORTED: 'aborted',
   GIT_FAILED: 'git_failed',

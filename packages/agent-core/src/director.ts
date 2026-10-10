@@ -256,3 +256,139 @@ export async function runRoleTurn(
 
 const DEFAULT_MAX_ROUNDS = 30;
 
+/* ------------------------------------------------------------------ */
+/* Single-shot director (no tool calling)                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Single-shot mode: the model generates the COMPLETE game in ONE response
+ * as structured JSON, without calling tools. This bypasses unreliable
+ * tool-calling in smaller Cloudflare models.
+ *
+ * The model outputs: {"files": {"path/to/file": "content", ...}}
+ * We parse, validate, and write the files deterministically.
+ */
+
+export interface SingleShotOptions {
+  runId: string;
+  userRequest: string;
+  provider: CloudflareClient;
+  registry: ModelRegistry;
+  budgets: BudgetTracker;
+  ctx: ToolContext;
+  shouldAbort?: () => boolean;
+}
+
+export interface SingleShotResult {
+  files: Record<string, string>;
+  summary: string;
+  tokensUsed: number;
+}
+
+const SINGLE_SHOT_SYSTEM_PROMPT = `You are an expert game developer. Generate a COMPLETE, PLAYABLE browser game based on the user's request.
+
+OUTPUT FORMAT (strict):
+- Output ONLY valid JSON. No explanations, no markdown, no code fences.
+- Structure: {"files": {"path": "content", ...}}
+- Required files: "index.html" (entry point), plus any JS/CSS/assets.
+- All paths are relative. Use "index.html", "src/main.js", "src/style.css", etc.
+- The game MUST be playable: include game loop, controls, and win/lose or scoring.
+- Keep it focused: a complete small game beats an incomplete large one.
+
+Example:
+{"files": {"index.html": "<!DOCTYPE html>...", "src/main.js": "console.log('hi');"}}`;
+
+function extractJson(text: string): Record<string, unknown> {
+  // Try direct parse first.
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    // Try extracting from markdown code block.
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) {
+      try {
+        return JSON.parse(match[1].trim()) as Record<string, unknown>;
+      } catch {
+        // Fall through to error.
+      }
+    }
+    throw new AgentCoreError(
+      AgentCoreErrorCode.INVALID_RESPONSE,
+      'Single-shot director did not return valid JSON.',
+      StopCode.INVALID_RESPONSE,
+    );
+  }
+}
+
+export async function runSingleShotDirector(
+  opts: SingleShotOptions,
+): Promise<SingleShotResult> {
+  const model = opts.registry.selectModel({
+    role: 'director',
+    requiresTools: false, // No tools needed in single-shot mode.
+    preferLarge: true,
+  });
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: SINGLE_SHOT_SYSTEM_PROMPT },
+    { role: 'user', content: opts.userRequest },
+  ];
+
+  const res = await opts.provider.chatCompletions({
+    model,
+    messages,
+    maxTokens: 8000,
+    temperature: 0.7,
+  });
+
+  const costUsd = computeCost(model, res.usage.inputTokens, res.usage.outputTokens);
+  opts.budgets.recordUsage({
+    inputTokens: res.usage.inputTokens,
+    outputTokens: res.usage.outputTokens,
+    costUsd,
+  });
+
+  if (!res.content || typeof res.content !== 'string') {
+    throw new AgentCoreError(
+      AgentCoreErrorCode.INVALID_RESPONSE,
+      'Single-shot director returned empty response.',
+      StopCode.INVALID_RESPONSE,
+    );
+  }
+
+  const parsed = extractJson(res.content);
+  const files = parsed['files'] as Record<string, string> | undefined;
+
+  if (!files || typeof files !== 'object' || Object.keys(files).length === 0) {
+    throw new AgentCoreError(
+      AgentCoreErrorCode.INVALID_RESPONSE,
+      'Single-shot director JSON missing "files" object.',
+      StopCode.INVALID_RESPONSE,
+    );
+  }
+
+  // Validate: all keys are strings, all values are strings.
+  for (const [path, content] of Object.entries(files)) {
+    if (typeof path !== 'string' || typeof content !== 'string') {
+      throw new AgentCoreError(
+        AgentCoreErrorCode.INVALID_RESPONSE,
+        `Invalid file entry: path and content must be strings (got ${typeof path}/${typeof content}).`,
+        StopCode.INVALID_RESPONSE,
+      );
+    }
+    if (path.includes('..') || path.startsWith('/')) {
+      throw new AgentCoreError(
+        AgentCoreErrorCode.INVALID_RESPONSE,
+        `Invalid file path (must be relative, no ..): ${path}`,
+        StopCode.INVALID_RESPONSE,
+      );
+    }
+  }
+
+  return {
+    files,
+    summary: `Generated ${Object.keys(files).length} files in single-shot mode.`,
+    tokensUsed: opts.budgets.snapshot().usedTokens,
+  };
+}
+

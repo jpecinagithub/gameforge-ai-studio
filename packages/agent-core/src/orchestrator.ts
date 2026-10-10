@@ -103,6 +103,12 @@ export interface MultiAgentJobOptions {
   maxLoopIterations?: number;
   history?: ChatMessage[];
   shouldAbort?: () => Promise<StopCode | null>;
+  /**
+   * Single-shot mode: the director generates the complete game as JSON in ONE
+   * LLM call (no tool calling). Bypasses unreliable tool-calling in smaller
+   * Cloudflare models. Files are written deterministically, then built.
+   */
+  singleShot?: boolean;
 }
 
 export interface MultiAgentJobResult {
@@ -276,6 +282,80 @@ interface VerifyCycle {
   review: BlindReviewResult | null;
 }
 
+interface SingleShotJobOptions {
+  runId: string;
+  workDir: string;
+  userRequest: string;
+  provider: CloudflareClient;
+  registry: ModelRegistry;
+  budgets: BudgetTracker;
+  git: ReturnType<typeof createGitOps>;
+  builds: BuildsOps;
+  events: EventsOps;
+  buildPollIntervalMs?: number;
+  buildTimeoutMs?: number;
+}
+
+/**
+ * Single-shot job: director generates all files as JSON in ONE LLM call,
+ * we write them deterministically, then build. No tool calling.
+ */
+async function runSingleShotJob(
+  opts: SingleShotJobOptions,
+): Promise<MultiAgentJobResult> {
+  const { runSingleShotDirector } = await import('./director.js');
+
+  // 1. Generate files via single LLM call (no tools).
+  const result = await runSingleShotDirector({
+    runId: opts.runId,
+    userRequest: opts.userRequest,
+    provider: opts.provider,
+    registry: opts.registry,
+    budgets: opts.budgets,
+    ctx: {
+      runId: opts.runId,
+      projectId: '',
+      role: 'director',
+      workDir: opts.workDir,
+      git: opts.git,
+      builds: opts.builds,
+      evidence: null as any,
+      events: opts.events,
+      redactor: null as any,
+      memory: null as any,
+    },
+  });
+
+  // 2. Write files deterministically (with git checkpoint).
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+  for (const [filePath, content] of Object.entries(result.files)) {
+    const fullPath = path.join(opts.workDir, filePath);
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    await fs.writeFile(fullPath, content, 'utf-8');
+  }
+  await opts.git.checkpoint('single-shot: generated game files');
+
+  // 3. Enqueue build and poll.
+  const { buildId } = await opts.builds.enqueue();
+  const pollMs = opts.buildPollIntervalMs ?? 2000;
+  const timeoutMs = opts.buildTimeoutMs ?? 300000;
+  const buildResult = await pollBuild(opts.builds, buildId, pollMs, timeoutMs);
+
+  return {
+    summary: result.summary,
+    buildId,
+    buildStatus: buildResult.status,
+    evidence: null,
+    stepsTaken: 1,
+    tokensUsed: result.tokensUsed,
+    tasks: [],
+    reviews: [],
+    loopIterations: 0,
+    stopCode: null,
+  };
+}
+
 export async function runMultiAgentJob(
   opts: MultiAgentJobOptions,
 ): Promise<MultiAgentJobResult> {
@@ -313,6 +393,24 @@ export async function runMultiAgentJob(
   const deps: OrchestratorDeps = { opts, budgets, builds, baseCtx, git, redactor };
   const dispatcher = createDispatcher(deps);
   const directorCtx: ToolContext = { ...baseCtx, dispatcher };
+
+  // Single-shot mode: bypass multi-agent orchestration entirely.
+  // The director generates all files as JSON in ONE LLM call.
+  if (opts.singleShot) {
+    return await runSingleShotJob({
+      runId: opts.runId,
+      workDir: opts.workDir,
+      userRequest: opts.userRequest,
+      provider: opts.provider,
+      registry: opts.registry,
+      budgets,
+      git,
+      builds,
+      events: opts.events,
+      buildPollIntervalMs: opts.buildPollIntervalMs,
+      buildTimeoutMs: opts.buildTimeoutMs,
+    });
+  }
 
   let stepsTaken = 0;
   const reviews: BlindReviewResult[] = [];
