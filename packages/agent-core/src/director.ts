@@ -80,6 +80,8 @@ export interface AgentTurnOptions extends Omit<DirectorTurnOptions, 'userRequest
   /** Model selection key (capability-based, never a model name). */
   modelRole: string;
   requiresTools?: boolean;
+  /** Prefer larger-context models (planning/reasoning roles). */
+  preferLargeModel?: boolean;
   /** The task/objective text (user-role message). */
   objective: string;
 }
@@ -103,6 +105,7 @@ export async function runAgentTurn(
   const model = registry.selectModel({
     role: modelRole,
     requiresTools: opts.requiresTools ?? true,
+    preferLarge: opts.preferLargeModel ?? false,
   });
 
   const messages: ChatMessage[] = [
@@ -222,6 +225,8 @@ export async function runDirectorTurn(
     toolDefs: TOOLS,
     modelRole: 'director',
     requiresTools: true,
+    // Director is a planning/reasoning role: prefer the most capable model.
+    preferLargeModel: true,
     objective: opts.userRequest,
   });
 }

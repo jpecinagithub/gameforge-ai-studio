@@ -330,6 +330,8 @@ export async function runMultiAgentJob(
     toolDefs: toolDefsForRole('director'),
     modelRole: directorDef.modelRole,
     requiresTools: directorDef.requiresTools,
+    // Director plans and reasons: prefer the most capable model available.
+    preferLargeModel: true,
     objective: opts.userRequest,
     history: opts.history,
     shouldAbort: opts.shouldAbort,
