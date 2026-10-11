@@ -329,8 +329,9 @@ export async function runSingleShotDirector(
   // Mistral: $10/month free. Alibaba: 1M free tokens/model (Singapore).
   let model: string;
   if (process.env['MISTRAL_API_KEY']) {
-    // Mistral Large: best quality for single-shot JSON game generation.
-    model = 'mistral-large-latest';
+    // Mistral Medium: good quality for single-shot JSON, available on free tier.
+    // (Large is not available on the $10/month free plan — HTTP 403.)
+    model = 'mistral-medium-latest';
   } else if (process.env['ALIBABA_API_KEY']) {
     // Alibaba models (from Jon's free quota). Qwen is Alibaba's own model,
     // more reliable on their platform than DeepSeek.
