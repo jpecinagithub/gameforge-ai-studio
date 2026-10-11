@@ -19,6 +19,7 @@ import {
   BudgetTracker,
   CloudflareClient,
   type AlibabaClient,
+  type MistralClient,
   ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -45,7 +46,7 @@ export interface DirectorTurnOptions {
   runId: string;
   workDir: string;
   ctx: ToolContext;
-  provider: CloudflareClient | AlibabaClient;
+  provider: CloudflareClient | AlibabaClient | MistralClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   /** The user's natural-language request (and any follow-up). */
@@ -273,7 +274,7 @@ const DEFAULT_MAX_ROUNDS = 30;
 export interface SingleShotOptions {
   runId: string;
   userRequest: string;
-  provider: CloudflareClient | AlibabaClient;
+  provider: CloudflareClient | AlibabaClient | MistralClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   ctx: ToolContext;
@@ -324,10 +325,13 @@ function extractJson(text: string): Record<string, unknown> {
 export async function runSingleShotDirector(
   opts: SingleShotOptions,
 ): Promise<SingleShotResult> {
-  // Model selection: use Alibaba when configured (Jon has free quota),
-  // otherwise use Cloudflare registry.
+  // Model selection priority: Mistral > Alibaba > Cloudflare registry.
+  // Mistral: $10/month free. Alibaba: 1M free tokens/model (Singapore).
   let model: string;
-  if (process.env['ALIBABA_API_KEY']) {
+  if (process.env['MISTRAL_API_KEY']) {
+    // Mistral Large: best quality for single-shot JSON game generation.
+    model = 'mistral-large-latest';
+  } else if (process.env['ALIBABA_API_KEY']) {
     // Alibaba models (from Jon's free quota). Qwen is Alibaba's own model,
     // more reliable on their platform than DeepSeek.
     model = 'qwen3.8-max-0902';

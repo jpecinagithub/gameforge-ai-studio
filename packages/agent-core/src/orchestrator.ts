@@ -36,12 +36,13 @@ import {
   type BudgetLimits,
   type CloudflareClient,
   type AlibabaClient,
+  type MistralClient,
   type ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
 
-/** LLM provider: Cloudflare or Alibaba (both expose chatCompletions). */
-export type LlmProvider = CloudflareClient | AlibabaClient;
+/** LLM provider: Cloudflare, Alibaba or Mistral (all expose chatCompletions). */
+export type LlmProvider = CloudflareClient | AlibabaClient | MistralClient;
 import { AgentCoreError, AgentCoreErrorCode, isPauseForUser } from './errors.js';
 import {
   createGitOps,
