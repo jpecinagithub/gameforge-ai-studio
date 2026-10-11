@@ -102,6 +102,28 @@ function stepsDoneOf(journal: Record<string, unknown> | null | undefined): strin
   return Array.isArray(s) ? s.filter((x): x is string => typeof x === 'string') : [];
 }
 
+/** Post a chat message from the agent so the user sees progress in the Studio. */
+async function postAgentMessage(
+  pool: DbPool,
+  runId: string,
+  content: string,
+): Promise<void> {
+  try {
+    const { rows } = await pool.query(
+      `SELECT conversation_id FROM agent_runs WHERE id = $1`,
+      [runId],
+    );
+    const conversationId = (rows[0] as { conversation_id: string | null } | undefined)?.conversation_id;
+    if (!conversationId) return;
+    await pool.query(
+      `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'assistant', $2)`,
+      [conversationId, content],
+    );
+  } catch {
+    // Best-effort: never fail the run because the chat message failed.
+  }
+}
+
 export async function processAgentRun(
   job: JobLike,
   deps: ProcessorDeps,
@@ -307,6 +329,8 @@ export async function processAgentRun(
         runMode,
         orchestrator: 'multi-agent',
       });
+      // Let the user know in chat that generation started.
+      await postAgentMessage(pool, runId, '🎮 Generando tu juego… Te aviso cuando esté listo.');
       const multi = await runMultiAgentJob({
         runId,
         projectId,
@@ -337,6 +361,15 @@ export async function processAgentRun(
         loopIterations: multi.loopIterations,
         stopCode: multi.stopCode,
       };
+      // Tell the user in chat that the game is ready.
+      const buildOk = multi.buildStatus === 'verified' || multi.buildStatus === 'partial';
+      await postAgentMessage(
+        pool,
+        runId,
+        buildOk
+          ? '✅ ¡Juego listo! Puedes descargarlo con el botón "Descargar ZIP" de arriba.'
+          : `⚠️ Generación completada pero el build dio: ${multi.buildStatus}. Revisa la pestaña Builds para detalles.`,
+      );
     } catch (err) {
       if (isPauseForUser(err)) {
         // The director asked a durable question: park the run. The API's
