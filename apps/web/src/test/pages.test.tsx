@@ -102,7 +102,7 @@ describe('Phase 5 pages', () => {
       projectId: 'p1',
       revisionSha: null,
       status: 'failed',
-      created_at: '',
+      createdAt: '',
     };
     expect(failed.revisionSha).toBeNull();
   });
