@@ -174,6 +174,7 @@ export async function processAgentRun(
       [runId, JSON.stringify({ code, detail })],
     );
     await appendEvent(pool, redactor, runId, AgentEventKind.ERROR, { code, detail });
+    await postAgentMessage(pool, runId, `❌ La generación falló: ${detail}`.slice(0, 500));
     logF('run failed', { code });
     return { outcome: 'failed' };
   };
@@ -441,6 +442,7 @@ export async function processAgentRun(
       stopCode: result.stopCode,
     });
     logF('run completed', { buildStatus: result.buildStatus });
+    await postAgentMessage(pool, runId, `✅ ¡Juego listo! ${result.summary ?? ''}`.trim());
     return { outcome: 'completed' };
   } catch (err) {
     // AgentCoreError → typed stop code → failed (not interrupted: the failure
