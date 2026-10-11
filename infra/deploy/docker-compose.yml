@@ -45,7 +45,7 @@ services:
         condition: service_healthy
     volumes:
       # Project git repos, blobs, artifacts. 0700 on the host (see scripts/init.sh).
-      - ${STORAGE_ROOT:-/var/lib/gameforge}:/var/lib/gameforge
+      - ${STORAGE_ROOT:-/var/lib/gameforge}:${STORAGE_ROOT:-/var/lib/gameforge}
     networks:
       - backend
     restart: unless-stopped
@@ -81,7 +81,7 @@ services:
       BUILD_PREVIEW_BIND_HOST: "0.0.0.0"
       BUILD_PREVIEW_PUBLIC_HOST: "worker"
     volumes:
-      - ${STORAGE_ROOT:-/var/lib/gameforge}:/var/lib/gameforge
+      - ${STORAGE_ROOT:-/var/lib/gameforge}:${STORAGE_ROOT:-/var/lib/gameforge}
     networks:
       - backend
     restart: unless-stopped
@@ -98,6 +98,9 @@ services:
       dockerfile: infra/deploy/Dockerfile.runner
     env_file:
       - .env
+    environment:
+      RUNNER_WORK_ROOT: "${STORAGE_ROOT:-/var/lib/gameforge}/work"
+      RUNNER_LOG_ROOT: "${STORAGE_ROOT:-/var/lib/gameforge}/runner-logs"
     volumes:
       # !!!! THE SINGLE PRIVILEGED SPAWN GATE !!!!
       # This is the ONLY service with the Docker socket. api and worker MUST
@@ -106,7 +109,7 @@ services:
       # 65532:65532 with --cap-drop=ALL, --read-only, --network none and
       # strict CPU/RAM/pid quotas. See apps/runner/src/runner.ts.
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${STORAGE_ROOT:-/var/lib/gameforge}:/var/lib/gameforge
+      - ${STORAGE_ROOT:-/var/lib/gameforge}:${STORAGE_ROOT:-/var/lib/gameforge}
     networks:
       - backend
     restart: unless-stopped
