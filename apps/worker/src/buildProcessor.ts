@@ -151,7 +151,7 @@ export async function processBuild(
     }
     await pool.query(
       `UPDATE build_jobs SET status = 'verified', ended_at = now(),
-         verdict = 'verified'
+         verdict = '"verified"'
        WHERE id = $1`,
       [buildId],
     );

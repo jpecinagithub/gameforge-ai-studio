@@ -186,7 +186,7 @@ async function main() {
     if (job?.id) {
       try {
         await pool.query(
-          `UPDATE build_jobs SET status = 'failed', ended_at = now(), verdict = 'failed'
+          `UPDATE build_jobs SET status = 'failed', ended_at = now(), verdict = '"failed"'
            WHERE id = $1 AND status NOT IN ('verified','partial','failed','canceled')`,
           [job.id],
         );
