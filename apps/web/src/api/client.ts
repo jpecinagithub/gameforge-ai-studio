@@ -127,6 +127,9 @@ export const clearMessages = (projectId: string): Promise<{ deleted: number }> =
     { method: 'DELETE' },
   );
 
+export const deleteProject = (projectId: string): Promise<void> =>
+  request<void>(`/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+
 export const askQuestion = (
   projectId: string,
   question: string,

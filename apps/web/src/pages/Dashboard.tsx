@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, FolderPlus, Gamepad2 } from 'lucide-react';
+import { Archive, FolderPlus, Gamepad2, Trash2 } from 'lucide-react';
 import {
   createProject,
+  deleteProject,
   listProjects,
 } from '../api/client';
 import type { Project } from '../types';
@@ -77,9 +78,12 @@ export function Dashboard() {
     }
   };
 
-  const fmtDate = (iso: string) => {
+  const fmtDate = (iso: string | null | undefined) => {
+    if (!iso) return '—';
     try {
-      return new Date(iso).toLocaleDateString(undefined, {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
@@ -152,32 +156,52 @@ export function Dashboard() {
         {state === 'ready' && projects.length > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((p) => (
-              <Link
+              <div
                 key={p.id}
-                to={`/projects/${p.id}`}
-                className="group rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-600"
+                className="group relative rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-600"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">
-                    {p.name}
-                  </h2>
-                  {p.status === 'archived' && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                      <Archive className="h-3 w-3" aria-hidden="true" />
-                      {t('dashboard.archived')}
-                    </span>
+                <Link to={`/projects/${p.id}`} className="block">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">
+                      {p.name}
+                    </h2>
+                    {p.status === 'archived' && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                        <Archive className="h-3 w-3" aria-hidden="true" />
+                        {t('dashboard.archived')}
+                      </span>
+                    )}
+                  </div>
+                  {p.description && (
+                    <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{p.description}</p>
                   )}
-                </div>
-                {p.description && (
-                  <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{p.description}</p>
-                )}
-                <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
-                  <span>{t('dashboard.updated', { date: fmtDate(p.updated_at) })}</span>
-                  <span className="font-medium text-cyan-400 group-hover:text-cyan-300">
-                    {t('dashboard.open')} →
-                  </span>
-                </div>
-              </Link>
+                  <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
+                    <span>{t('dashboard.updated', { date: fmtDate(p.updated_at) })}</span>
+                    <span className="font-medium text-cyan-400 group-hover:text-cyan-300">
+                      {t('dashboard.open')} →
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!window.confirm(t('dashboard.deleteConfirm', { name: p.name }))) return;
+                    try {
+                      await deleteProject(p.id);
+                      setProjects((prev) => prev.filter((x) => x.id !== p.id));
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : String(err));
+                    }
+                  }}
+                  title={t('dashboard.delete')}
+                  aria-label={t('dashboard.delete')}
+                  className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-600 opacity-0 transition-opacity hover:bg-red-900/40 hover:text-red-400 group-hover:opacity-100"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
             ))}
           </div>
         )}
