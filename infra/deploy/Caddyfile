@@ -19,6 +19,13 @@
 		reverse_proxy api:8090
 	}
 
+	# --- Preview: game builds served from the preview server (port 8091) ---
+	# Path-based (not subdomain) so it works on Tailscale/IP without DNS.
+	handle /preview/* {
+		uri strip_prefix /preview
+		reverse_proxy api:8091
+	}
+
 	# --- SSE event streams: disable buffering, generous timeouts ---
 	handle /events/* {
 		reverse_proxy api:8090 {
