@@ -151,7 +151,7 @@ export async function processBuild(
     }
     await pool.query(
       `UPDATE build_jobs SET status = 'verified', ended_at = now(),
-         verdict = 'verified', metadata = COALESCE(metadata, '{}'::jsonb) || '{"static": true}'::jsonb
+         verdict = 'verified'
        WHERE id = $1`,
       [buildId],
     );
