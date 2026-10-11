@@ -288,18 +288,29 @@ export interface SingleShotResult {
   tokensUsed: number;
 }
 
-const SINGLE_SHOT_SYSTEM_PROMPT = `You are an expert game developer. Generate a COMPLETE, PLAYABLE browser game based on the user's request.
+const SINGLE_SHOT_SYSTEM_PROMPT = `You are an expert game developer who ships POLISHED, FUN browser games. Generate a COMPLETE, PLAYABLE game based on the user's request.
 
 OUTPUT FORMAT (strict):
 - Output ONLY valid JSON. No explanations, no markdown, no code fences.
 - Structure: {"files": {"path": "content", ...}}
-- Required files: "index.html" (entry point), plus any JS/CSS/assets.
-- All paths are relative. Use "index.html", "src/main.js", "src/style.css", etc.
-- The game MUST be playable: include game loop, controls, and win/lose or scoring.
-- Keep it focused: a complete small game beats an incomplete large one.
+- Required: "index.html" (entry point), "src/main.js", "src/style.css".
+- All paths relative. No external dependencies, no CDN scripts, no fetched assets.
+- Everything must work by opening index.html directly (file:// protocol safe).
+
+QUALITY BAR — the game MUST include ALL of these:
+1. REAL GAMEPLAY: a clear objective (collect X, survive N seconds, reach the goal, defeat enemies). Not a tech demo — a GAME.
+2. WIN/LOSE: defined win condition AND lose condition, with a START SCREEN (title + instructions + "click/tap to start") and a GAME OVER / VICTORY screen with RESTART.
+3. HUD: score, lives/health or timer, displayed on canvas or DOM. Always visible during play.
+4. CHALLENGE: enemies or obstacles with movement patterns, plus increasing difficulty over time (faster spawns, more enemies).
+5. JUICE: particle effects on actions (jump, collect, hit), screen shake on damage, smooth animations. Sound effects via Web Audio API (oscillator-based, no files needed) — jump, collect, hit, win, lose.
+6. CONTROLS: keyboard (arrows/WASD + space) AND touch buttons on screen for mobile. Show controls on the start screen.
+7. VISUALS: draw real sprites with canvas (not just colored rectangles) — character with face/details, themed background with parallax or decoration, distinct enemy designs.
+8. NO BROKEN STATES: the game must never soft-lock. Restart always works. requestAnimationFrame loop with delta time.
+
+FORBIDDEN: placeholder "TODO" code, console.log-only output, single static screen, games with no lose condition, external URLs.
 
 Example:
-{"files": {"index.html": "<!DOCTYPE html>...", "src/main.js": "console.log('hi');"}}`;
+{"files": {"index.html": "<!DOCTYPE html>...", "src/main.js": "// full game code", "src/style.css": "/* styles */"}}`;
 
 function extractJson(text: string): Record<string, unknown> {
   // Try direct parse first.
