@@ -34,11 +34,13 @@ export interface NewProjectValues {
 export function NewProjectDialog({
   open,
   busy,
+  error,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   busy: boolean;
+  error?: string | null;
   onClose: () => void;
   onSubmit: (values: NewProjectValues) => void;
 }) {
@@ -159,6 +161,11 @@ export function NewProjectDialog({
               {busy ? t('projectDialog.creating') : t('projectDialog.create')}
             </button>
           </div>
+          {error && (
+            <p className="mt-3 rounded-md border border-red-900 bg-red-950/50 px-3 py-2 text-sm text-red-300" role="alert">
+              {error}
+            </p>
+          )}
         </form>
       </div>
     </div>

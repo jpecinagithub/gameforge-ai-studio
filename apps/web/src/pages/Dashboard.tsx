@@ -23,6 +23,7 @@ export function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState('loading');
@@ -49,20 +50,29 @@ export function Dashboard() {
 
   const handleCreate = async (values: NewProjectValues) => {
     setCreating(true);
+    setCreateError(null);
     try {
-      await createProject({
-        name: values.name,
-        description: values.description || undefined,
-        template: values.template,
-        kind: values.kind,
-        engine: 'three',
-      });
+      // 30s timeout so the dialog never hangs silently.
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: el servidor no responde')), 30000),
+      );
+      await Promise.race([
+        createProject({
+          name: values.name,
+          description: values.description || undefined,
+          template: values.template,
+          kind: values.kind,
+          engine: 'three',
+        }),
+        timeout,
+      ]);
       setDialogOpen(false);
       await load();
     } catch (e) {
-      // Keep the dialog open on failure; surface via the error state below.
-      if (e instanceof ApiError) setState('error');
-      else setState('error');
+      // Keep the dialog open on failure; show the error inside it.
+      const msg = e instanceof Error ? e.message : 'Error desconocido';
+      setCreateError(msg);
+      setState('error');
     } finally {
       setCreating(false);
     }
@@ -177,7 +187,8 @@ export function Dashboard() {
       <NewProjectDialog
         open={dialogOpen}
         busy={creating}
-        onClose={() => setDialogOpen(false)}
+        error={createError}
+        onClose={() => { setDialogOpen(false); setCreateError(null); }}
         onSubmit={(v) => void handleCreate(v)}
       />
       <UpdatePrompt />
