@@ -96,38 +96,6 @@ export async function projectRoutes(fastify: FastifyInstance): Promise<void> {
     return toProjectJson(await requireProject(db, id));
   });
 
-  fastify.get('/projects/:id/export', async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const project = await requireProject(db, id);
-    const dir = repoDir(id);
-
-    // Verify the repo directory exists.
-    const { stat } = await import('node:fs/promises');
-    try {
-      const s = await stat(dir);
-      if (!s.isDirectory()) return notFound('Project files not found.');
-    } catch {
-      return notFound('Project files not found.');
-    }
-
-    const archive = new ZipArchive({ zlib: { level: 9 } });
-
-    const safeName = (project.name || 'game').replace(/[^a-z0-9-_]+/gi, '-').slice(0, 48) || 'game';
-    reply.header('Content-Type', 'application/zip');
-    reply.header('Content-Disposition', `attachment; filename="${safeName}.zip"`);
-
-    // Stream the zip directly to the response.
-    const stream = reply.raw;
-    archive.on('error', (err: Error) => {
-      fastify.log.error({ err }, 'Export zip failed');
-      try { stream.destroy(err); } catch { /* noop */ }
-    });
-    archive.pipe(stream);
-    archive.directory(dir, false);
-    await archive.finalize();
-    return reply;
-  });
-
   fastify.patch(
     '/projects/:id',
     {
