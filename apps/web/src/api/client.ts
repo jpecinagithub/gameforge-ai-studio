@@ -46,9 +46,14 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
+    const headers: Record<string, string> = { ...(init?.headers as Record<string, string> ?? {}) };
+    // Only set JSON content-type when there's actually a body to parse.
+    if (init?.body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+    }
     res = await fetch(`${baseUrl()}/api/v1${path}`, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      headers,
     });
   } catch (e) {
     // Network-level failure (backend down, DNS, CORS): surface a typed error.
