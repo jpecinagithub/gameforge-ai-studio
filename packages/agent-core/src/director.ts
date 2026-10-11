@@ -20,6 +20,7 @@ import {
   CloudflareClient,
   type AlibabaClient,
   type MistralClient,
+  type OpenRouterClient,
   ModelRegistry,
   type ChatMessage,
 } from '@gameforge/model-providers';
@@ -46,7 +47,7 @@ export interface DirectorTurnOptions {
   runId: string;
   workDir: string;
   ctx: ToolContext;
-  provider: CloudflareClient | AlibabaClient | MistralClient;
+  provider: CloudflareClient | AlibabaClient | MistralClient | OpenRouterClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   /** The user's natural-language request (and any follow-up). */
@@ -274,7 +275,7 @@ const DEFAULT_MAX_ROUNDS = 30;
 export interface SingleShotOptions {
   runId: string;
   userRequest: string;
-  provider: CloudflareClient | AlibabaClient | MistralClient;
+  provider: CloudflareClient | AlibabaClient | MistralClient | OpenRouterClient;
   registry: ModelRegistry;
   budgets: BudgetTracker;
   ctx: ToolContext;
@@ -325,10 +326,14 @@ function extractJson(text: string): Record<string, unknown> {
 export async function runSingleShotDirector(
   opts: SingleShotOptions,
 ): Promise<SingleShotResult> {
-  // Model selection priority: Mistral > Alibaba > Cloudflare registry.
+  // Model selection priority: OpenRouter > Mistral > Alibaba > Cloudflare registry.
+  // OpenRouter: deepseek-chat is $0.14/1M tokens, excellent at code/JSON.
   // Mistral: $10/month free. Alibaba: 1M free tokens/model (Singapore).
   let model: string;
-  if (process.env['MISTRAL_API_KEY']) {
+  if (process.env['OPENROUTER_API_KEY']) {
+    // DeepSeek V3 via OpenRouter: best quality/price for single-shot JSON.
+    model = 'deepseek/deepseek-chat';
+  } else if (process.env['MISTRAL_API_KEY']) {
     // Mistral Medium: good quality for single-shot JSON, available on free tier.
     // (Large is not available on the $10/month free plan — HTTP 403.)
     model = 'mistral-medium-latest';

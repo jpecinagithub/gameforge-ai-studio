@@ -22,6 +22,7 @@ import {
   type CloudflareClient,
   type AlibabaClient,
   type MistralClient,
+  type OpenRouterClient,
   type ModelRegistry,
 } from '@gameforge/model-providers';
 import type { DbPool } from './db.js';
@@ -72,7 +73,7 @@ export interface ProcessorDeps {
   log: (msg: string, fields?: Record<string, unknown>) => void;
   storageRoot: string;
   /** Null when no LLM provider is configured — runs fail closed with a typed error. */
-  provider: CloudflareClient | AlibabaClient | MistralClient | null;
+  provider: CloudflareClient | AlibabaClient | MistralClient | OpenRouterClient | null;
   registry: ModelRegistry;
   queues: DirectorQueues;
   evidence: EvidenceProvider;
