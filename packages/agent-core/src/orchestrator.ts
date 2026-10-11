@@ -318,7 +318,9 @@ async function runSingleShotJob(
 
   // 1. Generate files via single LLM call (no tools).
   await opts.events.progress(opts.runId, 'Llamando al modelo para generar el juego…', 'generate');
-  const result = await runSingleShotDirector({
+
+  // Make the LLM call cancellable: race it against a cancel checker.
+  const directorPromise = runSingleShotDirector({
     runId: opts.runId,
     userRequest: opts.userRequest,
     provider: opts.provider,
@@ -337,6 +339,41 @@ async function runSingleShotJob(
       memory: null as any,
     },
   });
+
+  let result: Awaited<typeof directorPromise>;
+  if (opts.isCanceled) {
+    // Poll for cancellation every 2s while the LLM works.
+    const cancelPromise = (async () => {
+      while (true) {
+        await new Promise((r) => setTimeout(r, 2000));
+        if (await opts.isCanceled!()) {
+          throw new Error('__CANCELED__');
+        }
+      }
+    })();
+    try {
+      result = await Promise.race([directorPromise, cancelPromise]);
+    } catch (e) {
+      if (e instanceof Error && e.message === '__CANCELED__') {
+        await opts.events.progress(opts.runId, '🛑 Run detenido por el usuario.', 'done');
+        return {
+          summary: 'Run canceled by user during generation.',
+          buildId: '',
+          buildStatus: 'canceled' as BuildStatus,
+          evidence: null,
+          stepsTaken: 0,
+          tokensUsed: 0,
+          tasks: [],
+          reviews: [],
+          loopIterations: 0,
+          stopCode: 'user_canceled',
+        };
+      }
+      throw e;
+    }
+  } else {
+    result = await directorPromise;
+  }
 
   // 2. Write files deterministically (with git checkpoint).
   const fileCount = Object.keys(result.files).length;
