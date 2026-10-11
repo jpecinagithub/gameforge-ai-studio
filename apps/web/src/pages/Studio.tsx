@@ -18,6 +18,7 @@ import {
   Square,
 } from 'lucide-react';
 import {
+  apiBaseUrl,
   askQuestion,
   cancelRun,
   clearMessages,
@@ -235,6 +236,11 @@ export function Studio() {
   };
 
   const latestPreviewBuild = builds.find((b) => b.preview_url);
+  // Fallback for static games (no build): preview the project repo directly.
+  const projectPreviewUrl = !latestPreviewBuild && projectId
+    ? `${apiBaseUrl()}/preview/p/${encodeURIComponent(projectId)}/`
+    : null;
+  const previewUrl = latestPreviewBuild?.preview_url ?? projectPreviewUrl;
 
   const chatPanel = (
     <section
@@ -372,7 +378,7 @@ export function Studio() {
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           {t('studio.previewPanel')}
         </span>
-        {latestPreviewBuild?.preview_url && (
+        {previewUrl && (
           <div className="flex gap-1">
             <button
               type="button"
@@ -382,7 +388,7 @@ export function Studio() {
               {t('preview.reload')}
             </button>
             <a
-              href={latestPreviewBuild.preview_url}
+              href={previewUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-md px-2 py-1 text-xs text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
@@ -393,10 +399,10 @@ export function Studio() {
         )}
       </div>
       <div className="min-h-0 flex-1 p-3">
-        {latestPreviewBuild?.preview_url ? (
+        {previewUrl ? (
           <iframe
             key={previewKey}
-            src={latestPreviewBuild.preview_url}
+            src={previewUrl}
             title={t('studio.previewPanel')}
             // Opaque sandbox: the game runs isolated from the studio origin.
             // No API secrets or backend access reach this frame (ARCHITECTURE.md §8).

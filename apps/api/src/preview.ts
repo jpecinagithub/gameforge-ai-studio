@@ -113,6 +113,37 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
     return reply.send(data);
   });
 
+  // Project preview (for static games without a build): serves the repo directly.
+  fastify.get('/p/:projectId/*', async (req, reply) => {
+    const { projectId } = req.params as { projectId: string };
+    const rel = (req.params as { '*': string })['*'] || 'index.html';
+
+    const repoRoot = resolve(join(storageRoot, 'projects', projectId, 'repo'));
+    const abs = resolve(join(repoRoot, rel));
+    if (abs !== repoRoot && !abs.startsWith(repoRoot + sep)) {
+      return reply.code(404).send({ error: 'not found' });
+    }
+    let file = abs;
+    try {
+      const st = await stat(abs);
+      if (st.isDirectory()) file = join(abs, 'index.html');
+    } catch {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    let data: Buffer;
+    try {
+      data = await readFile(file);
+    } catch {
+      return reply.code(404).send({ error: 'not found' });
+    }
+
+    const isHtml = file.endsWith('.html');
+    reply.header('content-type', isHtml ? 'text/html; charset=utf-8' : 'application/octet-stream');
+    reply.header('cache-control', 'no-store');
+    return reply.send(data);
+  });
+
   fastify.get('/health', async () => ({ ok: true, service: 'preview' }));
 
   return fastify;

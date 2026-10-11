@@ -349,9 +349,29 @@ async function runSingleShotJob(
     await fs.writeFile(fullPath, content, 'utf-8');
   }
   await opts.git.checkpoint('single-shot: generated game files');
+
+  // 3. Static games (no package.json) skip the build entirely — nothing to compile.
+  // The game is playable as-is; no waiting, no stuck queues.
+  const hasPackageJson = 'package.json' in result.files;
+  if (!hasPackageJson) {
+    await opts.events.progress(opts.runId, 'Juego estático — listo sin build.', 'done');
+    return {
+      summary: result.summary,
+      buildId: '',
+      buildStatus: 'verified' as BuildStatus,
+      evidence: null,
+      stepsTaken: 1,
+      tokensUsed: result.tokensUsed,
+      tasks: [],
+      reviews: [],
+      loopIterations: 0,
+      stopCode: null,
+    };
+  }
+
   await opts.events.progress(opts.runId, 'Archivos listos. Iniciando build…', 'build');
 
-  // 3. Enqueue build and poll.
+  // 4. Enqueue build and poll (only for projects with package.json).
   const { buildId } = await opts.builds.enqueue();
   const pollMs = opts.buildPollIntervalMs ?? 2000;
   const timeoutMs = opts.buildTimeoutMs ?? 300000;
