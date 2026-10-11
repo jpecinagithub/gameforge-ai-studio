@@ -1,4 +1,5 @@
 import type {
+  AgentEvent,
   AgentRun,
   ApiErrorShape,
   Asset,
@@ -288,6 +289,11 @@ export const eventsUrl = (runId: string, lastEventId?: string): string => {
   const q = lastEventId ? `?lastEventId=${encodeURIComponent(lastEventId)}` : '';
   return `${baseUrl()}/api/v1/runs/${encodeURIComponent(runId)}/events${q}`;
 };
+
+export const listRunEvents = (runId: string): Promise<AgentEvent[]> =>
+  get<{ items: AgentEvent[] } | AgentEvent[]>(
+    `/runs/${encodeURIComponent(runId)}/events/list`,
+  ).then(unwrapItems);
 
 /* ---------- Project export ---------- */
 

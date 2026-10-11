@@ -158,9 +158,13 @@ async function pollBuild(
   buildId: string,
   intervalMs: number,
   timeoutMs: number,
-): Promise<{ status: BuildStatus; verdict?: unknown }> {
+  isCanceled?: () => Promise<boolean>,
+): Promise<{ status: BuildStatus; verdict?: unknown; canceled?: boolean }> {
   const deadline = Date.now() + timeoutMs;
   for (;;) {
+    if (isCanceled && (await isCanceled())) {
+      return { status: 'canceled' as BuildStatus, canceled: true };
+    }
     const s = await builds.status(buildId);
     if (TERMINAL_BUILD.has(s.status)) return s;
     if (Date.now() >= deadline) return s;
@@ -300,6 +304,7 @@ interface SingleShotJobOptions {
   events: EventsOps;
   buildPollIntervalMs?: number;
   buildTimeoutMs?: number;
+  isCanceled?: () => Promise<boolean>;
 }
 
 /**
@@ -350,7 +355,23 @@ async function runSingleShotJob(
   const { buildId } = await opts.builds.enqueue();
   const pollMs = opts.buildPollIntervalMs ?? 2000;
   const timeoutMs = opts.buildTimeoutMs ?? 300000;
-  const buildResult = await pollBuild(opts.builds, buildId, pollMs, timeoutMs);
+  const buildResult = await pollBuild(opts.builds, buildId, pollMs, timeoutMs, opts.isCanceled);
+
+  // If the user canceled during the build wait, stop here.
+  if (buildResult.canceled) {
+    return {
+      summary: 'Run canceled by user during build.',
+      buildId,
+      buildStatus: 'canceled' as BuildStatus,
+      evidence: null,
+      stepsTaken: 1,
+      tokensUsed: result.tokensUsed,
+      tasks: [],
+      reviews: [],
+      loopIterations: 0,
+      stopCode: 'canceled' as StopCode,
+    };
+  }
 
   return {
     summary: result.summary,
@@ -419,6 +440,9 @@ export async function runMultiAgentJob(
       events: opts.events,
       buildPollIntervalMs: opts.buildPollIntervalMs,
       buildTimeoutMs: opts.buildTimeoutMs,
+      isCanceled: opts.shouldAbort
+        ? async () => (await opts.shouldAbort!()) !== null
+        : undefined,
     });
   }
 

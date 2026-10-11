@@ -358,6 +358,14 @@ export async function processAgentRun(
         incumbentBuildId: incumbent?.last_good_build_id ?? null,
         // Single-shot mode: bypass unreliable tool-calling, generate game as JSON.
         singleShot: true,
+        shouldAbort: async () => {
+          const { rows } = await pool.query(
+            `SELECT status FROM agent_runs WHERE id = $1`,
+            [runId],
+          );
+          const status = (rows[0] as { status: string } | undefined)?.status;
+          return status === 'canceled' ? 'canceled' as const : null;
+        },
       });
       result = {
         summary: multi.summary,
@@ -371,15 +379,19 @@ export async function processAgentRun(
         loopIterations: multi.loopIterations,
         stopCode: multi.stopCode,
       };
-      // Tell the user in chat that the game is ready.
-      const buildOk = multi.buildStatus === 'verified' || multi.buildStatus === 'partial';
-      await postAgentMessage(
-        pool,
-        runId,
-        buildOk
-          ? '✅ ¡Juego listo! Puedes descargarlo con el botón "Descargar ZIP" de arriba.'
-          : `⚠️ Generación completada pero el build dio: ${multi.buildStatus}. Revisa la pestaña Builds para detalles.`,
-      );
+      // Tell the user in chat that the game is ready (unless canceled).
+      if (multi.buildStatus !== 'canceled') {
+        const buildOk = multi.buildStatus === 'verified' || multi.buildStatus === 'partial';
+        await postAgentMessage(
+          pool,
+          runId,
+          buildOk
+            ? '✅ ¡Juego listo! Puedes descargarlo con el botón "Descargar ZIP" de arriba.'
+            : `⚠️ Generación completada pero el build dio: ${multi.buildStatus}. Revisa la pestaña Builds para detalles.`,
+        );
+      } else {
+        await postAgentMessage(pool, runId, '🛑 Run detenido por el usuario.');
+      }
     } catch (err) {
       if (isPauseForUser(err)) {
         // The director asked a durable question: park the run. The API's

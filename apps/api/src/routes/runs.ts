@@ -199,6 +199,18 @@ export async function runRoutes(fastify: FastifyInstance): Promise<void> {
     return { id, status: 'canceled' };
   });
 
+  // GET /runs/:id/events/list — REST fallback for event history (when SSE fails).
+  fastify.get('/runs/:id/events/list', async (req) => {
+    const { id } = req.params as { id: string };
+    await requireRun(db, id);
+    const { rows } = await db.query(
+      `SELECT run_id, seq, kind, payload, created_at FROM agent_events
+       WHERE run_id = $1 ORDER BY seq ASC LIMIT 500`,
+      [id],
+    );
+    return { items: rows };
+  });
+
   fastify.get('/runs/:id/events', async (req, reply) => {
     const { id } = req.params as { id: string };
     await requireRun(db, id);

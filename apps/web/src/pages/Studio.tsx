@@ -25,6 +25,7 @@ import {
   getProject,
   listBuilds,
   listMessages,
+  listRunEvents,
   listRuns,
   postMessage,
 } from '../api/client';
@@ -138,6 +139,22 @@ export function Studio() {
   }, [projectId]);
 
   const { connected } = useRunEvents(activeRun?.id ?? null, handleSseEvent);
+
+  // REST fallback: load event history when the active run changes (covers SSE failures).
+  useEffect(() => {
+    if (!activeRun) return;
+    listRunEvents(activeRun.id)
+      .then((evts) => {
+        if (evts.length > 0) {
+          setEvents((prev) => {
+            const seen = new Set(prev.map((e) => `${e.run_id}:${e.seq}`));
+            const fresh = evts.filter((e) => !seen.has(`${e.run_id}:${e.seq}`));
+            return [...prev, ...fresh].sort((a, b) => a.seq - b.seq).slice(-500);
+          });
+        }
+      })
+      .catch(() => {});
+  }, [activeRun?.id]);
 
   // "/" focuses the composer; Escape blurs it.
   useEffect(() => {
