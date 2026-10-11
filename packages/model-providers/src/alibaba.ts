@@ -1,8 +1,10 @@
 /**
  * Alibaba Cloud Model Studio client (OpenAI-compatible API).
  *
- * Uses the OpenAI-compatible endpoint:
- *   https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions
+ * Uses the OpenAI-compatible endpoint. Jon's account is in ap-southeast-1
+ * (Singapore), so we use the INTERNATIONAL endpoint:
+ *   https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions
+ * (China mainland would be dashscope.aliyuncs.com — wrong region = 401.)
  *
  * Auth: Bearer <apiKey> (server env ALIBABA_API_KEY).
  *
@@ -38,7 +40,7 @@ export class AlibabaClient {
       );
     }
     this.apiKey = opts.apiKey;
-    this.baseUrl = (opts.baseUrl ?? 'https://dashscope.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
+    this.baseUrl = (opts.baseUrl ?? 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1').replace(/\/+$/, '');
     this.timeoutMs = opts.timeoutMs ?? 120_000;
   }
 
