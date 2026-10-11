@@ -326,7 +326,10 @@ const bundle: Phase = {
     const pkg = readPackageJson(ctx.buildDir);
     const scripts = (pkg?.['scripts'] as Record<string, string> | undefined) ?? {};
     if (hasVite || scripts['build']) {
-      const command = hasVite ? ['npx', '--no-install', 'vite', 'build'] : ['npm', 'run', 'build'];
+      // Relative asset URLs keep the bundle portable under /b/<buildId>/.
+      const command = hasVite
+        ? ['npx', '--no-install', 'vite', 'build', '--base=./']
+        : ['npm', 'run', 'build'];
       const r = await ctx.runner.exec({
         capability: 'build', cwd: ctx.buildDir, command,
         timeoutMs: 10 * 60 * 1000, network: 'none',
@@ -349,7 +352,11 @@ const previewServer: Phase = {
   name: 'previewServer',
   required: true,
   async run(ctx) {
-    ctx.server = await serveGame(ctx.distDir, { entry: ctx.studioJson.entry ?? 'index.html' });
+    ctx.server = await serveGame(ctx.distDir, {
+      entry: ctx.studioJson.entry ?? 'index.html',
+      host: process.env.BUILD_PREVIEW_BIND_HOST ?? '127.0.0.1',
+      publicHost: process.env.BUILD_PREVIEW_PUBLIC_HOST,
+    });
     return phaseResult('pass', ctx.server.url, { data: { url: ctx.server.url } });
   },
 };

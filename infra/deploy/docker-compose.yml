@@ -23,7 +23,7 @@ services:
       resources:
         limits: { cpus: "0.50", memory: 256M }
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80 || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -36,6 +36,8 @@ services:
       - .env
     environment:
       PORT: "8090"
+      BIND_ADDR: "0.0.0.0"
+      PREVIEW_PORT: "8091"
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +71,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      runner:
+        condition: service_healthy
+      browser:
+        condition: service_started
+    environment:
+      RUNNER_URL: "http://runner:8092"
+      PLAYWRIGHT_WS_ENDPOINT: "ws://browser:3000/"
+      BUILD_PREVIEW_BIND_HOST: "0.0.0.0"
+      BUILD_PREVIEW_PUBLIC_HOST: "worker"
     volumes:
       - ${STORAGE_ROOT:-/var/lib/gameforge}:/var/lib/gameforge
     networks:
@@ -102,9 +113,23 @@ services:
     deploy:
       resources:
         limits: { cpus: "4.0", memory: 4G }
-    # The runner HTTP binding lands in Phase 3. Until then service.js idles;
-    # validate the gate with:
-    #   docker compose exec runner node apps/runner/dist/service.js --check
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8092/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  browser:
+    build:
+      context: ../..
+      dockerfile: infra/deploy/Dockerfile.browser
+    networks:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2G }
 
   postgres:
     image: postgres:16-bookworm

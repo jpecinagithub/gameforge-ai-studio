@@ -417,7 +417,18 @@ export async function processAgentRun(
       throw err;
     }
 
-    // 8. Complete.
+    // 8. Complete only when the build is actually playable.
+    if (result.buildStatus === BuildStatus.FAILED) {
+      return await markFailed('build_failed', result.summary ?? 'El build del juego falló.');
+    }
+    if (result.buildStatus === BuildStatus.CANCELED) {
+      await pool.query(
+        "UPDATE agent_runs SET status = 'canceled', ended_at = now(), current_step = 'canceled' WHERE id = $1",
+        [runId],
+      );
+      return { outcome: 'canceled' };
+    }
+
     const finalJournal = {
       ...journal,
       stepsDone: [...new Set([...done, 'director', 'complete'])],
@@ -443,7 +454,6 @@ export async function processAgentRun(
       stopCode: result.stopCode,
     });
     logF('run completed', { buildStatus: result.buildStatus });
-    await postAgentMessage(pool, runId, `✅ ¡Juego listo! ${result.summary ?? ''}`.trim());
     return { outcome: 'completed' };
   } catch (err) {
     // AgentCoreError → typed stop code → failed (not interrupted: the failure

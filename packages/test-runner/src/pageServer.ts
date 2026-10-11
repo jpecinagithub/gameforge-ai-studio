@@ -24,6 +24,10 @@ export interface PageServerOptions {
   port?: number;
   /** Entry document relative to gameDir. Default 'index.html'. */
   entry?: string;
+  /** Interface used by the worker-side verification server. */
+  host?: string;
+  /** Hostname advertised to a browser running in another container. */
+  publicHost?: string;
 }
 
 export interface PageServer {
@@ -144,9 +148,10 @@ export async function serveGame(
   });
 
   const port = options.port ?? 0;
+  const host = options.host ?? '127.0.0.1';
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject);
-    server.listen(port, '127.0.0.1', () => resolve());
+    server.listen(port, host, () => resolve());
   });
   const address = server.address();
   if (!address || typeof address === 'string') {
@@ -154,7 +159,7 @@ export async function serveGame(
   }
 
   return {
-    url: `http://127.0.0.1:${address.port}`,
+    url: `http://${options.publicHost ?? host}:${address.port}`,
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((err) => (err ? reject(err) : resolve()));

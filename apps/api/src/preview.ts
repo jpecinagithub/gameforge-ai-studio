@@ -119,6 +119,14 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
     const rel = (req.params as { '*': string })['*'] || 'index.html';
 
     const repoRoot = resolve(join(storageRoot, 'projects', projectId, 'repo'));
+    // Source previews are only valid for dependency-free static projects.
+    // Projects with package.json must be served from their persisted build.
+    try {
+      await stat(join(repoRoot, 'package.json'));
+      return reply.code(404).send({ error: 'build required' });
+    } catch {
+      // No package.json: continue with the static source preview.
+    }
     const abs = resolve(join(repoRoot, rel));
     if (abs !== repoRoot && !abs.startsWith(repoRoot + sep)) {
       return reply.code(404).send({ error: 'not found' });
@@ -138,8 +146,23 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
       return reply.code(404).send({ error: 'not found' });
     }
 
-    const isHtml = file.endsWith('.html');
-    reply.header('content-type', isHtml ? 'text/html; charset=utf-8' : 'application/octet-stream');
+    const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
+    const isHtml = ext === '.html' || ext === '.htm';
+    if (isHtml) {
+      const prefix = `/p/${encodeURIComponent(projectId)}/`;
+      const html = data.toString('utf8')
+        .replace(/(src|href)=(['"])\/(?!\/)/gi, `$1=$2${prefix}`);
+      data = Buffer.from(html, 'utf8');
+    }
+    reply.header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('referrer-policy', 'no-referrer');
+    reply.header(
+      'content-security-policy',
+      "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+        `style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; ` +
+        `font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors ${studioOrigin}`,
+    );
     reply.header('cache-control', 'no-store');
     return reply.send(data);
   });

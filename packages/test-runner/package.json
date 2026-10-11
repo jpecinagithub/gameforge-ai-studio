@@ -1,18 +1,18 @@
 {
   "dependencies": {
+    "@gameforge/model-providers": "^0.1.0",
     "@gameforge/shared": "0.1.0",
     "pngjs": "^7.0.0",
-    "zod": "^4.0.0",
-    "@gameforge/model-providers": "^0.1.0"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
-    "@types/pngjs": "^6.0.0",
-    "typescript": "^5.9.0",
-    "vitest": "^3.0.0",
-    "fastify": "^5.0.0",
     "@fastify/multipart": "^9.4.0",
     "@gameforge/plugin-sdk": "*",
-    "playwright-core": "^1.64.0"
+    "@types/pngjs": "^6.0.0",
+    "fastify": "^5.0.0",
+    "playwright-core": "1.63.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
   },
   "exports": {
     ".": "./dist/index.js",
@@ -32,7 +32,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp src/shim.js dist/shim.js",
+    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').copyFileSync('src/shim.js','dist/shim.js')\"",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.acceptance.json"
   },

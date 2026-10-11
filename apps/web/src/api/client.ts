@@ -54,6 +54,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     res = await fetch(`${baseUrl()}/api/v1${path}`, {
       ...init,
       headers,
+      signal: init?.signal ?? AbortSignal.timeout(15_000),
     });
   } catch (e) {
     // Network-level failure (backend down, DNS, CORS): surface a typed error.
@@ -236,7 +237,7 @@ export async function uploadAsset(
   try {
     res = await fetch(
       `${baseUrl()}/api/v1/projects/${encodeURIComponent(projectId)}/assets${query}`,
-      { method: 'POST', body: form },
+      { method: 'POST', body: form, signal: AbortSignal.timeout(30_000) },
     );
   } catch {
     throw new ApiError(0, {
