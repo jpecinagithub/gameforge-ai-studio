@@ -42,6 +42,12 @@ async function main() {
   const concurrency = Number(process.env['WORKER_CONCURRENCY'] ?? 2);
   const buildConcurrency = Number(process.env['BUILD_CONCURRENCY'] ?? 1);
 
+  // Ensure work directory exists (builds need it; fail fast with clear error if not).
+  const { mkdirSync } = await import('node:fs');
+  for (const sub of ['work', 'artifacts', 'projects']) {
+    mkdirSync(path.join(storageRoot, sub), { recursive: true });
+  }
+
   // Secrets: register known values so redaction-on-append catches them.
   const redactor = createSecretRedactor();
   if (process.env['CLOUDFLARE_API_TOKEN'])
