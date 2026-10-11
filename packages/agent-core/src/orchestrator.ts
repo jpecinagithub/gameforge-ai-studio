@@ -366,7 +366,7 @@ async function runSingleShotJob(
           tasks: [],
           reviews: [],
           loopIterations: 0,
-          stopCode: 'user_canceled',
+          stopCode: StopCode.USER_STOPPED,
         };
       }
       throw e;
