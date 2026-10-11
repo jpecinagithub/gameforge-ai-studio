@@ -42,7 +42,7 @@ import { CodeEditor } from '../components/code/CodeEditor';
 import { QuestionCard, type QuestionPayload } from '../components/QuestionCard';
 import { UpdatePrompt } from '../components/UpdatePrompt';
 
-const TERMINAL = new Set(['completed', 'failed', 'canceled']);
+const TERMINAL = new Set(['completed', 'failed', 'canceled', 'interrupted']);
 type MobileTab = 'chat' | 'preview' | 'builds' | 'code' | 'more';
 
 function fmtTime(iso: string): string {
