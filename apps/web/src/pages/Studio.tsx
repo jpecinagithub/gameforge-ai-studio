@@ -75,7 +75,7 @@ export function Studio() {
   const [stopping, setStopping] = useState(false);
   const [composer, setComposer] = useState('');
   const [mode, setMode] = useState<ExecutionModeValue>('auto');
-  const [chatMode, setChatMode] = useState<'build' | 'ask'>('build');
+  const [chatMode, setChatMode] = useState<'build' | 'ask'>('ask');
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [rightTab, setRightTab] = useState<'preview' | 'builds' | 'code' | 'console'>('preview');
   const [previewKey, setPreviewKey] = useState(0);
