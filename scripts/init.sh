@@ -29,6 +29,7 @@ for d in projects blobs artifacts backups work runner-logs; do
   mkdir -p "$STORAGE_ROOT/$d"
 done
 chmod 0700 "$STORAGE_ROOT"
+chown -R 65532:65532 "$STORAGE_ROOT"
 echo "    created: projects blobs artifacts backups work runner-logs"
 
 echo "==> 4/5 Pre-pulling pinned images (runner uses --pull never)..."
