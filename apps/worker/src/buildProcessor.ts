@@ -75,7 +75,13 @@ function createContainerRunner(): RunnerLike {
         image,
         command: opts.command,
         workdirHostPath: opts.cwd,
-        env: opts.env ?? {},
+        // Workload containers run as uid 65532 with a read-only rootfs. npm
+        // otherwise tries to create /.npm because that uid has no home entry.
+        env: {
+          HOME: '/tmp',
+          NPM_CONFIG_CACHE: '/tmp/.npm',
+          ...(opts.env ?? {}),
+        },
         cpuQuota: 2,
         memMb: 2048,
         pidsLimit: 512,
