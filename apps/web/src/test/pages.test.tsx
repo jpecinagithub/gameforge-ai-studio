@@ -100,8 +100,11 @@ describe('Phase 5 pages', () => {
     const failed: import('../types').BuildJob = {
       id: 'b1',
       projectId: 'p1',
+      runId: null,
       revisionSha: null,
       status: 'failed',
+      startedAt: null,
+      endedAt: null,
       createdAt: '',
     };
     expect(failed.revisionSha).toBeNull();
