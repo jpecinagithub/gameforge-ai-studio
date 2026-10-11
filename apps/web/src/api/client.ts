@@ -126,6 +126,12 @@ export const clearMessages = (projectId: string): Promise<{ deleted: number }> =
     { method: 'DELETE' },
   );
 
+export const askQuestion = (
+  projectId: string,
+  question: string,
+): Promise<{ question: ChatMessage; answer: ChatMessage }> =>
+  post(`/projects/${encodeURIComponent(projectId)}/ask`, { question });
+
 export const postMessage = (
   projectId: string,
   input: PostMessageInput,

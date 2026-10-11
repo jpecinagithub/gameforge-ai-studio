@@ -18,6 +18,7 @@ import {
   Square,
 } from 'lucide-react';
 import {
+  askQuestion,
   cancelRun,
   clearMessages,
   exportProjectUrl,
@@ -73,6 +74,7 @@ export function Studio() {
   const [stopping, setStopping] = useState(false);
   const [composer, setComposer] = useState('');
   const [mode, setMode] = useState<ExecutionModeValue>('auto');
+  const [chatMode, setChatMode] = useState<'build' | 'ask'>('build');
   const [mobileTab, setMobileTab] = useState<MobileTab>('chat');
   const [rightTab, setRightTab] = useState<'preview' | 'builds' | 'code' | 'console'>('preview');
   const [previewKey, setPreviewKey] = useState(0);
@@ -161,11 +163,17 @@ export function Studio() {
     if (!text || !projectId || sending) return;
     setSending(true);
     try {
-      const msg = await postMessage(projectId, { content: text, startRun: { mode } });
-      setMessages((prev) => [...prev, msg]);
+      if (chatMode === 'ask') {
+        // Conversational Q&A — no run started.
+        const { question, answer } = await askQuestion(projectId, text);
+        setMessages((prev) => [...prev, question, answer]);
+      } else {
+        const msg = await postMessage(projectId, { content: text, startRun: { mode } });
+        setMessages((prev) => [...prev, msg]);
+        const r = await listRuns(projectId);
+        setRuns(r);
+      }
       setComposer('');
-      const r = await listRuns(projectId);
-      setRuns(r);
     } catch {
       setLoadError(true);
     } finally {
@@ -259,6 +267,24 @@ export function Studio() {
 
       <div className="border-t border-zinc-800 p-3">
         <div className="mb-2 flex items-center gap-2">
+          <div className="flex rounded-md border border-zinc-800" role="tablist" aria-label={t('chat.inputMode')}>
+            {(['build', 'ask'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={chatMode === m}
+                onClick={() => setChatMode(m)}
+                className={`px-3 py-1 text-xs ${
+                  chatMode === m
+                    ? 'bg-zinc-700 text-white'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {t(`chat.inputModes.${m}`)}
+              </button>
+            ))}
+          </div>
           <label htmlFor="run-mode" className="text-xs text-zinc-500">
             {t('chat.mode')}
           </label>

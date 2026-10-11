@@ -221,4 +221,99 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
     );
     return { projectId, deleted: rowCount ?? 0 };
   });
+
+  // POST /projects/:id/ask — conversational Q&A (no run started).
+  // Answers questions about the project using recent runs/builds as context.
+  fastify.post('/projects/:id/ask', async (req) => {
+    const { id: projectId } = req.params as { id: string };
+    await requireProject(db, projectId);
+    const body = (req.body ?? {}) as { question?: string };
+    const question = typeof body.question === 'string' ? body.question.trim() : '';
+    if (!question) {
+      throw new Error('question is required');
+    }
+
+    const apiKey = process.env['OPENROUTER_API_KEY'];
+    if (!apiKey) {
+      throw new Error('OPENROUTER_API_KEY not configured');
+    }
+
+    // Gather context: project, recent runs, recent builds.
+    const [projRes, runsRes, buildsRes] = await Promise.all([
+      db.query(`SELECT name, description FROM projects WHERE id = $1`, [projectId]),
+      db.query(
+        `SELECT id, status, mode, created_at FROM agent_runs
+         WHERE project_id = $1 ORDER BY created_at DESC LIMIT 5`,
+        [projectId],
+      ),
+      db.query(
+        `SELECT id, status, verdict, created_at FROM build_jobs
+         WHERE project_id = $1 ORDER BY created_at DESC LIMIT 5`,
+        [projectId],
+      ),
+    ]);
+    const proj = (projRes.rows[0] ?? {}) as { name?: string; description?: string };
+    const context = [
+      `Project: ${proj.name ?? projectId}`,
+      proj.description ? `Description: ${proj.description}` : '',
+      `Recent runs: ${JSON.stringify(runsRes.rows)}`,
+      `Recent builds: ${JSON.stringify(buildsRes.rows)}`,
+    ].filter(Boolean).join('\n');
+
+    const systemPrompt = `You are the GameForge AI Studio assistant. Answer the user's question about their game project concisely and helpfully. Use the project context below. Respond in the user's language (Spanish if they write in Spanish, English if in English). Keep answers short — 2-3 sentences unless they ask for detail.\n\n${context}`;
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://gameforge-ai-studio',
+        'X-Title': 'GameForge AI Studio',
+      },
+      body: JSON.stringify({
+        model: 'deepseek/deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: question },
+        ],
+        max_tokens: 500,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`OpenRouter error: ${res.status}`);
+    }
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const answer =
+      data.choices?.[0]?.message?.content?.trim() ?? 'No pude generar una respuesta.';
+
+    // Save both messages to the conversation.
+    const { rows: convRows } = await db.query<{ id: string }>(
+      `SELECT id FROM conversations WHERE project_id = $1 ORDER BY created_at LIMIT 1`,
+      [projectId],
+    );
+    let conversationId = convRows[0]?.id;
+    if (!conversationId) {
+      const { rows: newConv } = await db.query<{ id: string }>(
+        `INSERT INTO conversations (id, project_id, title) VALUES ($1, $2, $3) RETURNING id`,
+        [randomUUID(), projectId, proj.name ?? 'Game'],
+      );
+      conversationId = newConv[0].id;
+    }
+    const { rows: qRows } = await db.query<{ id: string; created_at: string }>(
+      `INSERT INTO messages (conversation_id, role, content) VALUES ($1, 'user', $2)
+       RETURNING id, created_at`,
+      [conversationId, question],
+    );
+    const { rows: aRows } = await db.query<{ id: string; created_at: string }>(
+      `INSERT INTO messages (conversation_id, role, content, model) VALUES ($1, 'assistant', $2, $3)
+       RETURNING id, created_at`,
+      [conversationId, answer, 'deepseek/deepseek-chat'],
+    );
+    return {
+      question: { id: qRows[0].id, role: 'user', content: question, createdAt: qRows[0].created_at },
+      answer: { id: aRows[0].id, role: 'assistant', content: answer, createdAt: aRows[0].created_at },
+    };
+  });
 }
