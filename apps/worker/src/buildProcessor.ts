@@ -143,6 +143,12 @@ export async function processBuild(
     await access(path.join(projectDir, 'package.json'), constants.R_OK);
   } catch {
     logF('no package.json; static game, skipping build pipeline', { buildId });
+    if (runId) {
+      await appendEvent(pool, redactor, runId, AgentEventKind.PROGRESS, {
+        summary: 'Juego estático detectado (sin package.json) — no necesita build.',
+        step: 'build-skip',
+      });
+    }
     await pool.query(
       `UPDATE build_jobs SET status = 'verified', ended_at = now(),
          verdict = 'verified', metadata = COALESCE(metadata, '{}'::jsonb) || '{"static": true}'::jsonb

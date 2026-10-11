@@ -312,6 +312,7 @@ async function runSingleShotJob(
   const { runSingleShotDirector } = await import('./director.js');
 
   // 1. Generate files via single LLM call (no tools).
+  await opts.events.progress(opts.runId, 'Llamando al modelo para generar el juego…', 'generate');
   const result = await runSingleShotDirector({
     runId: opts.runId,
     userRequest: opts.userRequest,
@@ -333,6 +334,8 @@ async function runSingleShotJob(
   });
 
   // 2. Write files deterministically (with git checkpoint).
+  const fileCount = Object.keys(result.files).length;
+  await opts.events.progress(opts.runId, `Escribiendo ${fileCount} archivos…`, 'write');
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
   for (const [filePath, content] of Object.entries(result.files)) {
@@ -341,6 +344,7 @@ async function runSingleShotJob(
     await fs.writeFile(fullPath, content, 'utf-8');
   }
   await opts.git.checkpoint('single-shot: generated game files');
+  await opts.events.progress(opts.runId, 'Archivos listos. Iniciando build…', 'build');
 
   // 3. Enqueue build and poll.
   const { buildId } = await opts.builds.enqueue();

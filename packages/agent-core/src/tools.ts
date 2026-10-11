@@ -92,6 +92,7 @@ export interface EventsOps {
   ): Promise<void>;
   toolCall(runId: string, toolName: string, args: unknown): Promise<void>;
   toolResult(runId: string, toolName: string, ok: boolean, summary: string): Promise<void>;
+  progress(runId: string, summary: string, step?: string): Promise<void>;
 }
 
 export interface ToolContext {

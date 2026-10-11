@@ -111,6 +111,7 @@ export const AgentEventKind = {
   STATUS_CHANGED: 'status_changed',
   DECISION: 'decision',
   PLAN_UPDATED: 'plan_updated',
+  PROGRESS: 'progress',
   TOOL_CALL: 'tool_call',
   TOOL_RESULT: 'tool_result',
   MODEL_CALL: 'model_call',

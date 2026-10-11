@@ -255,6 +255,12 @@ export async function processAgentRun(
           summary,
         });
       },
+      progress: async (rId, summary, step) => {
+        await appendEvent(pool, redactor, rId, AgentEventKind.PROGRESS, {
+          summary,
+          step,
+        });
+      },
     };
 
     await pool.query(
@@ -331,6 +337,10 @@ export async function processAgentRun(
       });
       // Let the user know in chat that generation started.
       await postAgentMessage(pool, runId, '🎮 Generando tu juego… Te aviso cuando esté listo.');
+      await appendEvent(pool, redactor, runId, AgentEventKind.PROGRESS, {
+        summary: 'Generando archivos del juego con el modelo…',
+        step: 'generate',
+      });
       const multi = await runMultiAgentJob({
         runId,
         projectId,
