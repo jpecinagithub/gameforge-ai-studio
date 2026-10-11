@@ -115,11 +115,11 @@ function BuildDetail({
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
           <div className="text-xs text-zinc-500">
             <p>
-              {build.revision_sha
-                ? t('buildDetail.revision', { sha: build.revision_sha.slice(0, 12) })
+              {build.revisionSha
+                ? t('buildDetail.revision', { sha: build.revisionSha.slice(0, 12) })
                 : t('builds.noRevision')}
             </p>
-            <p>{fmtDateTime(build.created_at)}</p>
+            <p>{fmtDateTime(build.createdAt)}</p>
             {build.preview_url && (
               <a
                 href={build.preview_url}
@@ -427,8 +427,8 @@ export function Builds() {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <StatusPill kind="build" status={b.status} />
                     <span className="font-mono text-xs text-zinc-500">
-                      {b.revision_sha
-                        ? t('builds.revision', { sha: b.revision_sha.slice(0, 7) })
+                      {b.revisionSha
+                        ? t('builds.revision', { sha: b.revisionSha.slice(0, 7) })
                         : t('builds.noRevision')}
                     </span>
                   </div>
@@ -437,7 +437,7 @@ export function Builds() {
                       {b.verdict.summary}
                     </p>
                   )}
-                  <p className="mt-1.5 text-xs text-zinc-600">{fmtDateTime(b.created_at)}</p>
+                  <p className="mt-1.5 text-xs text-zinc-600">{fmtDateTime(b.createdAt)}</p>
                 </button>
               </li>
             ))}

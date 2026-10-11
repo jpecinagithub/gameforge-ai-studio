@@ -442,8 +442,8 @@ export function Studio() {
             <div className="flex items-center justify-between gap-2">
               <StatusPill kind="build" status={b.status} />
               <span className="font-mono text-xs text-zinc-500">
-                {b.revision_sha
-                  ? t('builds.revision', { sha: b.revision_sha.slice(0, 7) })
+                {b.revisionSha
+                  ? t('builds.revision', { sha: b.revisionSha.slice(0, 7) })
                   : t('builds.noRevision')}
               </span>
             </div>
@@ -451,7 +451,7 @@ export function Studio() {
               <p className="mt-2 text-xs text-zinc-400">{b.verdict.summary}</p>
             )}
             <p className="mt-1 text-[11px] text-zinc-600">
-              {t('builds.started', { date: fmtTime(b.created_at) })}
+              {t('builds.started', { date: fmtTime(b.createdAt) })}
             </p>
           </article>
         ))}

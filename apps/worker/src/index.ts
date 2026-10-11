@@ -180,9 +180,21 @@ async function main() {
     async (job) => processBuild(job, { pool, redactor, log, storageRoot, provider, registry }),
     { connection, concurrency: buildConcurrency },
   );
-  buildsWorker.on('failed', (job, err) =>
-    jsonLog('error', 'build job failed', { jobId: job?.id, error: err.message }),
-  );
+  buildsWorker.on('failed', async (job, err) => {
+    jsonLog('error', 'build job failed', { jobId: job?.id, error: err.message });
+    // Update DB so the UI doesn't show a stale "Queued" status.
+    if (job?.id) {
+      try {
+        await pool.query(
+          `UPDATE build_jobs SET status = 'failed', ended_at = now(), verdict = 'failed'
+           WHERE id = $1 AND status NOT IN ('verified','partial','failed','canceled')`,
+          [job.id],
+        );
+      } catch {
+        /* best-effort */
+      }
+    }
+  });
 
   const shutdown = async (signal: string) => {
     jsonLog('info', `received ${signal}; draining workers`);

@@ -41,9 +41,10 @@ export interface AgentRun {
 
 export interface BuildJob {
   id: string;
-  project_id: string;
+  projectId: string;
+  runId: string | null;
   /** Null when the build failed before producing a revision. */
-  revision_sha: string | null;
+  revisionSha: string | null;
   status: BuildStatusValue;
   /** Served preview URL for this build's artifact (preview origin). Set when available. */
   preview_url?: string | null;
@@ -54,7 +55,9 @@ export interface BuildJob {
     /** Phase outcomes persisted by the build pipeline (Phase 3+). */
     phases?: Array<{ name: string; status: 'pass' | 'fail' | 'skip'; error?: string | null }>;
   } | null;
-  created_at: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
 }
 
 /** Project asset row (mirrors GET /api/v1/projects/:id/assets). */

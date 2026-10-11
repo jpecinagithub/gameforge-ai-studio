@@ -94,16 +94,16 @@ describe('Phase 5 pages', () => {
   });
 
   it('BuildJob type allows a null revision_sha (failed builds have none)', () => {
-    // Regression: failed builds return revision_sha: null; rendering
-    // `b.revision_sha.slice(...)` crashed the Studio page (blank screen).
+    // Regression: failed builds return revisionSha: null; rendering
+    // `b.revisionSha.slice(...)` crashed the Studio page (blank screen).
     // The type forces every usage to guard; this asserts the type accepts null.
     const failed: import('../types').BuildJob = {
       id: 'b1',
-      project_id: 'p1',
-      revision_sha: null,
+      projectId: 'p1',
+      revisionSha: null,
       status: 'failed',
       created_at: '',
     };
-    expect(failed.revision_sha).toBeNull();
+    expect(failed.revisionSha).toBeNull();
   });
 });
