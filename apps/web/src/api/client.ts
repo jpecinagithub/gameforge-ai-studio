@@ -120,6 +120,12 @@ export const listMessages = (projectId: string): Promise<ChatMessage[]> =>
     `/projects/${encodeURIComponent(projectId)}/messages`,
   ).then(unwrapItems);
 
+export const clearMessages = (projectId: string): Promise<{ deleted: number }> =>
+  request<{ projectId: string; deleted: number }>(
+    `/projects/${encodeURIComponent(projectId)}/messages`,
+    { method: 'DELETE' },
+  );
+
 export const postMessage = (
   projectId: string,
   input: PostMessageInput,

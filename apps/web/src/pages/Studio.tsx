@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import {
   cancelRun,
+  clearMessages,
   exportProjectUrl,
   getProject,
   listBuilds,
@@ -172,6 +173,17 @@ export function Studio() {
     }
   };
 
+  const handleClearMessages = async () => {
+    if (!projectId || messages.length === 0) return;
+    if (!window.confirm(t('chat.clearConfirm'))) return;
+    try {
+      await clearMessages(projectId);
+      setMessages([]);
+    } catch {
+      setLoadError(true);
+    }
+  };
+
   const answerQuestion = (q: QuestionPayload, answerText: string) => {
     setQuestions((prev) => prev.filter((x) => x !== q));
     void sendMessage(answerText);
@@ -204,6 +216,16 @@ export function Studio() {
       aria-label={t('studio.chatTab')}
       className="flex min-h-0 flex-1 flex-col"
     >
+      <div className="flex items-center justify-end border-b border-zinc-800 px-4 py-2">
+        <button
+          type="button"
+          onClick={handleClearMessages}
+          disabled={messages.length === 0}
+          className="text-xs text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
+        >
+          {t('chat.clear')}
+        </button>
+      </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
           <p className="rounded-lg border border-dashed border-zinc-800 p-4 text-sm text-zinc-500">

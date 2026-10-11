@@ -209,4 +209,16 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
   fastify.get('/projects/:id/conversations/:cid', async () => {
     throw notFound('conversation detail view is planned for Phase 3');
   });
+
+  // DELETE /projects/:id/messages — clear all chat messages for the project.
+  fastify.delete('/projects/:id/messages', async (req) => {
+    const { id: projectId } = req.params as { id: string };
+    await requireProject(db, projectId);
+    const { rowCount } = await db.query(
+      `DELETE FROM messages WHERE conversation_id IN
+         (SELECT id FROM conversations WHERE project_id = $1)`,
+      [projectId],
+    );
+    return { projectId, deleted: rowCount ?? 0 };
+  });
 }
