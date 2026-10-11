@@ -153,6 +153,7 @@ export async function processAgentRun(
         "UPDATE agent_runs SET ended_at = COALESCE(ended_at, now()) WHERE id = $1",
         [runId],
       );
+      await postAgentMessage(pool, runId, '🛑 Run detenido por el usuario.');
       logF('run canceled');
       return 'canceled';
     }
@@ -471,6 +472,7 @@ export async function processAgentRun(
       throw err;
     }
     logF('run interrupted by unexpected error', { error: message });
+    await postAgentMessage(pool, runId, `⚠️ La generación se interrumpió: ${message}`.slice(0, 500));
     return { outcome: 'interrupted' };
   }
 }
