@@ -276,3 +276,9 @@ export const eventsUrl = (runId: string, lastEventId?: string): string => {
   const q = lastEventId ? `?lastEventId=${encodeURIComponent(lastEventId)}` : '';
   return `${baseUrl()}/api/v1/runs/${encodeURIComponent(runId)}/events${q}`;
 };
+
+/* ---------- Project export ---------- */
+
+/** Download URL for the project ZIP export. */
+export const exportProjectUrl = (projectId: string): string =>
+  `${baseUrl()}/api/v1/projects/${encodeURIComponent(projectId)}/export`;

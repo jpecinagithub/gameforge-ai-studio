@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   ChevronRight,
+  Download,
   FolderOpen,
   Gamepad2,
   GitBranch,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import {
   cancelRun,
+  exportProjectUrl,
   getProject,
   listBuilds,
   listMessages,
@@ -482,6 +484,16 @@ export function Studio() {
           {project?.name ?? '…'}
         </h1>
         <div className="ml-auto flex items-center gap-2">
+          <a
+            href={projectId ? exportProjectUrl(projectId) : '#'}
+            download
+            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:bg-zinc-700"
+            aria-label={t('studio.downloadZip')}
+            title={t('studio.downloadZip')}
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('studio.downloadZip')}
+          </a>
           {activeRun ? (
             <>
               <StatusPill kind="run" status={activeRun.status} />
