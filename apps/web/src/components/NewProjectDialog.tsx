@@ -3,11 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 export const TEMPLATES = [
-  'empty-three',
-  'first-person',
-  'third-person',
-  'racing',
-  'platformer-3d',
+  'three-empty',
+  'three-fps',
+  'three-third-person',
+  'three-racing',
+  'three-platformer',
   'arcade-2d',
   'puzzle',
   'physics-sandbox',
