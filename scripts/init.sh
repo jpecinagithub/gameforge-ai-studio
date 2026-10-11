@@ -19,8 +19,8 @@ if [ ! -f .env ]; then
   echo "    then re-run this script."
   exit 1
 fi
-# shellcheck disable=SC1091
-set -a; source .env; set +a
+# Do not `source` dotenv files: API tokens may contain shell metacharacters.
+STORAGE_ROOT="$(sed -n 's/^STORAGE_ROOT=//p' .env | tail -n 1)"
 : "${STORAGE_ROOT:=/var/lib/gameforge}"
 echo "    STORAGE_ROOT=$STORAGE_ROOT"
 
