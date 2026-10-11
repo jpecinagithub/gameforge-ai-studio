@@ -215,6 +215,9 @@ export async function processBuild(
       projectDir,
       buildId,
       revision: revisionSha,
+      // Keep the build inside the work root (not /tmp) so the runner's
+      // containment check passes.
+      buildDir: path.join(storageRoot, 'work', `build-${buildId}`),
       runner: createContainerRunner(),
       browser: await createBrowser(),
       store,
