@@ -5,7 +5,6 @@ import { Archive, FolderPlus, Gamepad2 } from 'lucide-react';
 import {
   createProject,
   listProjects,
-  ApiError,
 } from '../api/client';
 import type { Project } from '../types';
 import { Header } from '../components/Header';
