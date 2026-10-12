@@ -181,8 +181,27 @@ function readStudioJson(dir: string): StudioJson {
  */
 export function normalizeStudioScripts(raw: unknown): ScriptAction[] | undefined {
   if (!Array.isArray(raw)) return undefined;
+  // Some generators emit named scenarios instead of the compact runner format:
+  //   { name: 'play', actions: [{ type: 'keyDown', key: 'KeyW' }, ...] }
+  // Flatten those scenarios here so a valid playthrough is not accidentally
+  // reduced to a single zero-step no-op.
+  const items = raw.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [item];
+    const actions = (item as { actions?: unknown }).actions;
+    return Array.isArray(actions) ? actions : [item];
+  });
   const normalized: ScriptAction[] = [];
-  for (const item of raw) {
+  const heldKeys = new Set<string>();
+  const browserKey = (key: string): string => {
+    if (/^Key[A-Z]$/.test(key)) return key.slice(3).toLowerCase();
+    if (/^Digit[0-9]$/.test(key)) return key.slice(5);
+    if (key === 'Space') return ' ';
+    if (key === 'ShiftLeft' || key === 'ShiftRight') return 'Shift';
+    if (key === 'ControlLeft' || key === 'ControlRight') return 'Control';
+    if (key === 'AltLeft' || key === 'AltRight') return 'Alt';
+    return key;
+  };
+  for (const item of items) {
     if (typeof item === 'string') {
       const click = /^click\s+(.+)$/i.exec(item);
       if (click?.[1]) {
@@ -206,6 +225,27 @@ export function normalizeStudioScripts(raw: unknown): ScriptAction[] | undefined
       continue;
     }
     if (!item || typeof item !== 'object') continue;
+    const legacy = item as { type?: unknown; key?: unknown; ms?: unknown };
+    if (legacy.type === 'keyDown' && typeof legacy.key === 'string') {
+      heldKeys.add(browserKey(legacy.key));
+      continue;
+    }
+    if (legacy.type === 'keyUp' && typeof legacy.key === 'string') {
+      heldKeys.delete(browserKey(legacy.key));
+      continue;
+    }
+    if (legacy.type === 'wait') {
+      const ms = Number(legacy.ms);
+      if (Number.isFinite(ms) && ms > 0) {
+        const dtMs = 16.666;
+        normalized.push({
+          steps: Math.max(1, Math.ceil(ms / dtMs)),
+          dtMs,
+          ...(heldKeys.size > 0 ? { keys: [...heldKeys] } : {}),
+        });
+      }
+      continue;
+    }
     const candidate = item as Partial<ScriptAction>;
     const steps = Number(candidate.steps ?? 0);
     const dtMs = Number(candidate.dtMs ?? 16.666);

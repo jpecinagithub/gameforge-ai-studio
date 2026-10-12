@@ -116,6 +116,23 @@ describe('runBuildPipeline', () => {
     ]);
   });
 
+  it('normalizes named generator scenarios with held-key waits', () => {
+    expect(normalizeStudioScripts([{
+      name: 'boot-and-move',
+      actions: [
+        { type: 'wait', ms: 500 },
+        { type: 'keyDown', key: 'KeyW' },
+        { type: 'wait', ms: 1000 },
+        { type: 'keyUp', key: 'KeyW' },
+        { type: 'wait', ms: 300 },
+      ],
+    }])).toEqual([
+      { steps: 31, dtMs: 16.666 },
+      { steps: 61, dtMs: 16.666, keys: ['w'] },
+      { steps: 19, dtMs: 16.666 },
+    ]);
+  });
+
   it('runs phases in order and stops at the first failure with verdict failed', async () => {
     const projectDir = fixtureProject({ 'tsconfig.json': '{}' });
     dirs.push(projectDir);
