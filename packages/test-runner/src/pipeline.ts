@@ -325,9 +325,14 @@ const bundle: Phase = {
     );
     const pkg = readPackageJson(ctx.buildDir);
     const scripts = (pkg?.['scripts'] as Record<string, string> | undefined) ?? {};
+    const dependencies = {
+      ...((pkg?.['dependencies'] as Record<string, string> | undefined) ?? {}),
+      ...((pkg?.['devDependencies'] as Record<string, string> | undefined) ?? {}),
+    };
+    const usesVite = hasVite || typeof dependencies['vite'] === 'string';
     if (hasVite || scripts['build']) {
       // Relative asset URLs keep the bundle portable under /b/<buildId>/.
-      const command = hasVite
+      const command = usesVite
         ? ['npx', '--no-install', 'vite', 'build', '--base=./']
         : ['npm', 'run', 'build'];
       const r = await ctx.runner.exec({

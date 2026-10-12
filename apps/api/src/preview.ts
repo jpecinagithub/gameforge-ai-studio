@@ -95,6 +95,12 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
 
     const ext = file.slice(file.lastIndexOf('.')).toLowerCase();
     const isHtml = ext === '.html' || ext === '.htm';
+    if (isHtml) {
+      const prefix = `/b/${encodeURIComponent(buildId)}/`;
+      const html = data.toString('utf8')
+        .replace(/(src|href)=(['"])\/(?!\/)/gi, `$1=$2${prefix}`);
+      data = Buffer.from(html, 'utf8');
+    }
     reply.header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
     reply.header('x-content-type-options', 'nosniff');
     reply.header('referrer-policy', 'no-referrer');
