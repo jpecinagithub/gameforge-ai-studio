@@ -82,6 +82,8 @@ describe('Phase 5 pages', () => {
     const html = render('/library', <Library />);
     expect(html).toContain('Library');
     expect(html).toContain('Ready to play');
+    expect(html).toContain('Create Game');
+    expect(html).toContain('aria-current="page"');
   });
 
   it('Assets page shows kind filter chips when multiple kinds exist', async () => {
