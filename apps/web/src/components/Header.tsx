@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Gamepad2, Languages, Library as LibraryIcon, Moon, Settings, Sun } from 'lucide-react';
+import { Gamepad2, Languages, Moon, Settings, Sun } from 'lucide-react';
 import { useUiStore } from '../store';
 import type { SupportedLang } from '../i18n';
 
@@ -18,15 +18,6 @@ export function Header() {
       </Link>
 
       <div className="ml-auto flex items-center gap-1">
-        <Link
-          to="/library"
-          className="inline-flex min-h-9 items-center gap-2 rounded-md px-2.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-cyan-300"
-          aria-label={t('nav.library')}
-        >
-          <LibraryIcon className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">{t('nav.library')}</span>
-        </Link>
-
         <label className="sr-only" htmlFor="lang-select">
           {t('header.language')}
         </label>

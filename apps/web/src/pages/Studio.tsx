@@ -10,6 +10,7 @@ import {
   GitBranch,
   Hammer,
   LayoutDashboard,
+  Library as LibraryIcon,
   Loader2,
   MonitorPlay,
   Package,
@@ -661,6 +662,13 @@ export function Studio() {
             {t('nav.createGame')}
             <ChevronRight className="ml-auto h-4 w-4 text-zinc-600" aria-hidden="true" />
           </Link>
+          <Link
+            to="/library"
+            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800"
+          >
+            <LibraryIcon className="h-4 w-4" aria-hidden="true" />
+            {t('nav.library')}
+          </Link>
           {projectId && (
             <>
               <Link
@@ -723,6 +731,13 @@ export function Studio() {
           )}
           {mobileTab === 'more' && (
             <nav aria-label={t('studio.moreTab')} className="flex flex-col gap-1 p-3">
+              <Link
+                to="/library"
+                className="flex min-h-11 items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-200"
+              >
+                <LibraryIcon className="h-4 w-4 text-zinc-500" aria-hidden="true" />
+                {t('nav.library')}
+              </Link>
               {projectId && (
                 <>
                   <Link
