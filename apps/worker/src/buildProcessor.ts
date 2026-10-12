@@ -142,40 +142,6 @@ export async function processBuild(
   const projectDir = path.join(storageRoot, 'projects', projectId, 'repo');
   const store = createPgBuildStore(pool, storageRoot);
 
-  // Static game shortcut: if there is no package.json, there is nothing to
-  // build (plain HTML/JS/CSS). Mark the build VERIFIED immediately instead of
-  // failing — the game is ready to serve as-is.
-  const { access, constants } = await import('node:fs/promises');
-  try {
-    await access(path.join(projectDir, 'package.json'), constants.R_OK);
-  } catch {
-    logF('no package.json; static game, skipping build pipeline', { buildId });
-    if (runId) {
-      await appendEvent(pool, redactor, runId, AgentEventKind.PROGRESS, {
-        summary: 'Juego estático detectado (sin package.json) — no necesita build.',
-        step: 'build-skip',
-      });
-    }
-    await pool.query(
-      `UPDATE build_jobs SET status = 'verified', ended_at = now(),
-         verdict = '"verified"'
-       WHERE id = $1`,
-      [buildId],
-    );
-    await pool.query(
-      `UPDATE projects SET last_good_build_id = $2 WHERE id = $1`,
-      [projectId, buildId],
-    );
-    if (runId) {
-      await appendEvent(pool, redactor, runId, AgentEventKind.BUILD_FINISHED, {
-        buildId,
-        verdict: 'verified',
-        static: true,
-      });
-    }
-    return { outcome: 'completed' };
-  }
-
   // Semantic visual review deps: only when a live provider binding exists.
   // Every LLM completion is recorded in model_usage (§7 cost accounting).
   const vision: VisualReviewDeps | undefined =
