@@ -10,6 +10,7 @@ import { PNG } from 'pngjs';
 import { BuildStatus } from '@gameforge/shared';
 import {
   runBuildPipeline,
+  normalizeStudioScripts,
   DEFAULT_PHASES,
   type Phase,
   type PhaseContext,
@@ -102,6 +103,19 @@ afterEach(() => {
 });
 
 describe('runBuildPipeline', () => {
+  it('normalizes legacy click, select, and step actions from studio.json', () => {
+    expect(normalizeStudioScripts([
+      'open index.html',
+      'select #mode easy',
+      'click .cell:nth-child(1)',
+      'step 300',
+    ])).toEqual([
+      { select: { selector: '#mode', value: 'easy' }, steps: 0, dtMs: 16.666 },
+      { click: '.cell:nth-child(1)', steps: 0, dtMs: 16.666 },
+      { steps: 1, dtMs: 300 },
+    ]);
+  });
+
   it('runs phases in order and stops at the first failure with verdict failed', async () => {
     const projectDir = fixtureProject({ 'tsconfig.json': '{}' });
     dirs.push(projectDir);

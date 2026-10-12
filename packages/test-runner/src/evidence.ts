@@ -55,6 +55,10 @@ export interface ScriptAction {
   dtMs: number;
   /** Keys held during the action (pressed down, released after). */
   keys?: string[];
+  /** Optional DOM control interaction before advancing the clock. */
+  click?: string;
+  /** Optional select interaction before advancing the clock. */
+  select?: { selector: string; value: string };
 }
 
 export interface GatherEvidenceOptions {
@@ -235,6 +239,21 @@ export async function gatherEvidence(
 
   for (let a = 0; a < script.length; a++) {
     const action = script[a];
+    if (action.select) {
+      const { selector, value } = action.select;
+      await tryEvaluate(
+        page,
+        `(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return false; el.value = ${JSON.stringify(value)}; el.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,
+        false,
+      );
+    }
+    if (action.click) {
+      await tryEvaluate(
+        page,
+        `(() => { const el = document.querySelector(${JSON.stringify(action.click)}); if (!el) return false; el.click(); return true; })()`,
+        false,
+      );
+    }
     for (const key of action.keys ?? []) {
       try {
         await page.keyboard.down(key);

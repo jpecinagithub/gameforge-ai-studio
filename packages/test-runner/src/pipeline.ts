@@ -167,10 +167,61 @@ function readStudioJson(dir: string): StudioJson {
   try {
     const raw = fs.readFileSync(path.join(dir, 'studio.json'), 'utf8');
     const parsed = JSON.parse(raw) as StudioJson;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    const scripts = normalizeStudioScripts((parsed as { scripts?: unknown }).scripts);
+    return { ...parsed, ...(scripts ? { scripts } : { scripts: undefined }) };
   } catch {
     return {};
   }
+}
+
+/**
+ * Accept the typed script contract and the legacy human-readable actions that
+ * early generators wrote to studio.json ("click …", "select … …", "step …").
+ */
+export function normalizeStudioScripts(raw: unknown): ScriptAction[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const normalized: ScriptAction[] = [];
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      const click = /^click\s+(.+)$/i.exec(item);
+      if (click?.[1]) {
+        normalized.push({ click: click[1].trim(), steps: 0, dtMs: 16.666 });
+        continue;
+      }
+      const select = /^select\s+(\S+)\s+(.+)$/i.exec(item);
+      if (select?.[1] && select[2]) {
+        normalized.push({
+          select: { selector: select[1], value: select[2].trim() },
+          steps: 0,
+          dtMs: 16.666,
+        });
+        continue;
+      }
+      const step = /^step\s+(\d+(?:\.\d+)?)$/i.exec(item);
+      if (step?.[1]) {
+        normalized.push({ steps: 1, dtMs: Number(step[1]) });
+      }
+      // "open …" is redundant: gatherEvidence already navigates to the entry.
+      continue;
+    }
+    if (!item || typeof item !== 'object') continue;
+    const candidate = item as Partial<ScriptAction>;
+    const steps = Number(candidate.steps ?? 0);
+    const dtMs = Number(candidate.dtMs ?? 16.666);
+    if (!Number.isFinite(steps) || steps < 0 || !Number.isFinite(dtMs) || dtMs <= 0) continue;
+    const keys = Array.isArray(candidate.keys)
+      ? candidate.keys.filter((key): key is string => typeof key === 'string')
+      : undefined;
+    const click = typeof candidate.click === 'string' ? candidate.click : undefined;
+    const select = candidate.select
+      && typeof candidate.select.selector === 'string'
+      && typeof candidate.select.value === 'string'
+      ? candidate.select
+      : undefined;
+    normalized.push({ steps: Math.floor(steps), dtMs, ...(keys ? { keys } : {}), ...(click ? { click } : {}), ...(select ? { select } : {}) });
+  }
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function copyTree(src: string, dest: string): void {
