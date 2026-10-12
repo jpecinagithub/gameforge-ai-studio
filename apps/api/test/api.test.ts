@@ -329,6 +329,73 @@ describe('runs idempotency', () => {
   });
 });
 
+describe('manual builds', () => {
+  const REVISION_ID = '22222222-2222-4222-8222-222222222222';
+  const REVISION_SHA = 'a'.repeat(40);
+  const BUILD_ROW = {
+    id: 'build_01JTEST123456789012345678',
+    project_id: PROJECT_ROW.id,
+    run_id: null,
+    revision_sha: REVISION_SHA,
+    status: 'queued',
+    verdict: null,
+    started_at: null,
+    ended_at: null,
+    created_at: '2026-10-09T00:00:00.000Z',
+  };
+
+  it('resolves the current revision id to its Git SHA before enqueueing', async () => {
+    const db = createStubDb();
+    db.on(/FROM projects WHERE id = \$1 AND deleted_at IS NULL/, () => ({
+      rows: [{ ...PROJECT_ROW, current_revision_id: REVISION_ID }],
+      rowCount: 1,
+    }));
+    db.on(/SELECT git_sha FROM project_revisions/, (_text, params) => ({
+      rows: params[0] === REVISION_ID ? [{ git_sha: REVISION_SHA }] : [],
+      rowCount: params[0] === REVISION_ID ? 1 : 0,
+    }));
+    db.on(/INSERT INTO build_jobs/, (_text, params) => ({
+      rows: [{ ...BUILD_ROW, revision_sha: params[2] }],
+      rowCount: 1,
+    }));
+
+    const { server, queues } = await makeServer({ db });
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${PROJECT_ROW.id}/builds`,
+      payload: { idempotencyKey: 'manual-build-test' },
+    });
+
+    expect(res.statusCode).toBe(202);
+    expect(res.json().revisionSha).toBe(REVISION_SHA);
+    expect(queues.buildCalls).toHaveLength(1);
+    expect(queues.buildCalls[0]).toMatchObject({
+      data: { projectId: PROJECT_ROW.id, revisionSha: REVISION_SHA },
+      opts: { jobId: 'manual-build-test' },
+    });
+  });
+
+  it('rejects a project whose current revision record is missing', async () => {
+    const db = createStubDb();
+    db.on(/FROM projects WHERE id = \$1 AND deleted_at IS NULL/, () => ({
+      rows: [{ ...PROJECT_ROW, current_revision_id: REVISION_ID }],
+      rowCount: 1,
+    }));
+    db.on(/SELECT git_sha FROM project_revisions/, () => ({ rows: [], rowCount: 0 }));
+
+    const { server, queues } = await makeServer({ db });
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${PROJECT_ROW.id}/builds`,
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toContain('missing its Git commit');
+    expect(queues.buildCalls).toHaveLength(0);
+  });
+});
+
 describe('settings', () => {
   it('PATCH /settings refuses secret-like keys', async () => {
     const { server } = await makeServer();

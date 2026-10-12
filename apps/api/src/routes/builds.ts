@@ -54,11 +54,20 @@ export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
     const { id: projectId } = req.params as { id: string };
     const project = await requireProject(db, projectId);
     const body = parseOr400(createBuildSchema, req.body);
-    const revisionSha = project.current_revision_id;
-    if (!revisionSha) {
+    const revisionId = project.current_revision_id;
+    if (!revisionId) {
       // No committed revision yet — nothing to build. Honest 400, not a fake build.
       const { badRequest } = await import('../httpErrors.js');
       throw badRequest('Project has no committed revision yet');
+    }
+    const { rows: revisionRows } = await db.query<{ git_sha: string }>(
+      `SELECT git_sha FROM project_revisions WHERE id = $1 AND project_id = $2`,
+      [revisionId, projectId],
+    );
+    const revisionSha = revisionRows[0]?.git_sha;
+    if (!revisionSha) {
+      const { badRequest } = await import('../httpErrors.js');
+      throw badRequest('Project current revision is missing its Git commit');
     }
     const buildId = newBuildId();
     const jobId = body.idempotencyKey ?? buildId;
