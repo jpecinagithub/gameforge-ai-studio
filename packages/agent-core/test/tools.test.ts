@@ -161,8 +161,10 @@ describe('writeFile', () => {
     await executeToolCall('writeFile', { path: 'a/b.txt', content: 'hello' }, h.ctx);
     const read = (await executeToolCall('readFile', { path: 'a/b.txt' }, h.ctx)) as {
       content: string;
+      headSha: string;
     };
     expect(read.content).toBe('hello');
+    expect(read.headSha).toBe(SHA_A);
     const list = (await executeToolCall('listFiles', {}, h.ctx)) as { files: string[] };
     expect(list.files).toContain('a/b.txt');
   });

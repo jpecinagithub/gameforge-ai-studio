@@ -161,7 +161,7 @@ const MAX_READ_BYTES = 512 * 1024; // 512 KiB — tools read sources, not binari
 const readFile: ToolDef<{ path: string }> = {
   name: 'readFile',
   description:
-    'Read a text file from the project workdir. Path must be relative (e.g. "src/main.ts").',
+    'Read a text file from the project workdir and return the full current headSha for optimistic concurrency. Path must be relative (e.g. "src/main.ts").',
   schema: z.object({ path: relativePathSchema }),
   parameters: {
     type: 'object',
@@ -184,7 +184,7 @@ const readFile: ToolDef<{ path: string }> = {
         `readFile: file too large (${stat.size} bytes): ${rel}`,
       );
     }
-    return { path: rel, content: await fs.readFile(abs, 'utf8') };
+    return { path: rel, content: await fs.readFile(abs, 'utf8'), headSha: await ctx.git.head() };
   },
 };
 
@@ -218,8 +218,9 @@ const writeFile: ToolDef<{ path: string; content: string; expectedCommitSha?: st
     if (expectedCommitSha && expectedCommitSha !== headBefore) {
       throw new AgentCoreError(
         AgentCoreErrorCode.CONFLICT,
-        `writeFile CONFLICT on ${rel}: expected HEAD ${expectedCommitSha.slice(0, 12)} ` +
-          `but HEAD is ${headBefore.slice(0, 12)}. Re-read the file and retry.`,
+        `writeFile CONFLICT on ${rel}: expected HEAD ${expectedCommitSha} ` +
+          `but HEAD is ${headBefore}. Re-read the file and retry with the full headSha; ` +
+          `for a new file, omit expectedCommitSha.`,
         StopCode.UNKNOWN,
         { path: rel, expectedCommitSha, actualHead: headBefore },
       );
