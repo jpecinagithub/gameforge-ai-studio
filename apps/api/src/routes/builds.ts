@@ -75,6 +75,7 @@ export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
          FROM projects p
          JOIN build_jobs b ON b.id = p.last_good_build_id
         WHERE p.status = 'active'
+          AND p.deleted_at IS NULL
           AND b.status = 'verified'
         ORDER BY COALESCE(b.ended_at, b.created_at) DESC, p.name ASC`,
     );

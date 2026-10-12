@@ -449,6 +449,7 @@ describe('game library', () => {
     db.on(/JOIN build_jobs b ON b.id = p.last_good_build_id/, (text) => {
       expect(text).toContain("b.status = 'verified'");
       expect(text).toContain("p.status = 'active'");
+      expect(text).toContain('p.deleted_at IS NULL');
       return {
         rows: [{
           project_id: PROJECT_ROW.id,
