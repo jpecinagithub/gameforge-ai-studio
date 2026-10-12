@@ -11,6 +11,7 @@ see the root README and `docs/ARCHITECTURE.md` §9.
 | `api` | `Dockerfile.api` | Fastify `/api/v1`, SSE, migrations at boot | no |
 | `worker` | `Dockerfile.worker` | BullMQ: agent runs, builds, verification | no |
 | `runner` | `Dockerfile.runner` | **Spawn gate** — the only Docker-socket holder | no |
+| `browser` | `Dockerfile.browser` | Isolated Playwright/Chromium verification | no |
 | `postgres` | `postgres:16-bookworm` | Durable state | no |
 | `redis` | `redis:7-bookworm` | Queues (AOF persistence) | no |
 
@@ -19,8 +20,8 @@ see the root README and `docs/ARCHITECTURE.md` §9.
 `runner` mounts `/var/run/docker.sock`. This is the **single privileged spawn
 gate** — the Genex-`ProcessSandbox` analogue. Consequences, all deliberate:
 
-- `api` and `worker` **never** get the socket. They call the runner library
-  (HTTP binding in Phase 3); they cannot spawn containers themselves.
+- `api` and `worker` **never** get the socket. The worker calls the runner over
+  its private HTTP endpoint; neither service can spawn containers itself.
 - The runner *service* runs as root so it can talk to the socket. Every
   *workload* container it spawns runs as `65532:65532` with `--cap-drop=ALL`,
   `--read-only`, `--network none` (or the `gf-egress` proxy network),
@@ -41,9 +42,8 @@ docker compose exec runner node apps/runner/dist/service.js --check  # expect: d
 curl -k https://$GF_DOMAIN/api/v1/health
 ```
 
-`init.sh` also creates the `gf-egress` Docker network. The egress *proxy*
-(allowlist: npm registry + Playwright CDN only) is wired in Phase 7; until then,
-`registry-only` jobs fail closed if the network is missing.
+`init.sh` also creates the `gf-egress` Docker network used only while installing
+project dependencies. Build and test jobs remain on `--network none`.
 
 ## Updating
 
@@ -62,11 +62,9 @@ api 1 CPU/1G · worker 2 CPU/2G · runner 4 CPU/4G · postgres 1 CPU/1G ·
 redis 0.5 CPU/512M · proxy 0.5 CPU/256M. Tune in `docker-compose.yml`
 (`deploy.resources`) after measuring on the real Oracle instance (R1).
 
-## Honest gaps (Phase 7)
+## Operational checks
 
-- Egress proxy for `gf-egress` (registry-only jobs).
-- Runner HTTP binding (currently `service.js` idles; `--check` works now).
-- `preview.` origin backend (`api:8091` page server) — Caddy routes it, the API
-  serves it in Phase 3.
-- Worker health: no fake HTTP healthcheck; use `GET /api/v1/system/metrics`
-  (BullMQ heartbeat).
+- `GET /api/v1/system/metrics` reports the worker/BullMQ heartbeat.
+- `docker compose exec runner node apps/runner/dist/service.js --check` verifies
+  Docker socket access.
+- `GET /preview/health` verifies the preview server through Caddy.

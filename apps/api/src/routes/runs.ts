@@ -234,7 +234,8 @@ export async function runRoutes(fastify: FastifyInstance): Promise<void> {
 
     // Replay support: Last-Event-ID: <runId>:<seq>
     let afterSeq = 0;
-    const lastEventId = req.headers['last-event-id'];
+    const queryLastEventId = (req.query as { lastEventId?: unknown }).lastEventId;
+    const lastEventId = req.headers['last-event-id'] ?? queryLastEventId;
     if (typeof lastEventId === 'string') {
       const m = /^(.+):(\d+)$/.exec(lastEventId);
       if (m && m[1] === id) afterSeq = Number.parseInt(m[2], 10);
@@ -281,11 +282,13 @@ export async function runRoutes(fastify: FastifyInstance): Promise<void> {
       for (const row of rows) {
         lastSeq = Number(row.seq);
         const data = JSON.stringify({
+          id: lastSeq,
+          run_id: id,
           seq: lastSeq,
           kind: row.kind,
           // Defense in depth: payloads are redacted on append; redact again on read.
           payload: globalRedactor.redactDeep(row.payload),
-          createdAt: row.created_at,
+          created_at: row.created_at,
         });
         reply.raw.write(`id: ${id}:${row.seq}\nevent: agent_event\ndata: ${data}\n\n`);
       }

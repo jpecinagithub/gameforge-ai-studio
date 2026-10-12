@@ -40,17 +40,22 @@ export function useRunEvents(
 
       // The backend sends named events with stable `id:` fields
       // (agent_events.seq). We track the ID so reconnects replay missed events.
-      es.onmessage = (msg: MessageEvent) => {
+      const handleAgentEvent = (msg: MessageEvent) => {
         const id = msg.lastEventId || undefined;
         if (id) lastIdRef.current = id;
         try {
           const payload = JSON.parse(msg.data) as AgentEvent;
           backoff = 1000; // reset backoff on success
-          onEventRef.current(payload, 'message');
+          onEventRef.current(payload, 'agent_event');
         } catch {
           /* malformed frame — ignore, keep the stream alive */
         }
       };
+      es.addEventListener('agent_event', handleAgentEvent);
+      es.addEventListener('done', () => {
+        es?.close();
+        if (!disposed) setConnected(false);
+      });
 
       es.onerror = () => {
         es?.close();

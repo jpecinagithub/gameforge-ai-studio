@@ -10,7 +10,7 @@ import {
   type AcceptanceCriterion,
   type RunnerLike,
 } from '@gameforge/test-runner';
-import { runJob, IMAGE_ALLOWLIST, type Capability } from 'gameforge-runner';
+import { IMAGE_ALLOWLIST, type Capability } from 'gameforge-runner';
 import type { DbPool } from './db.js';
 import { appendEvent } from './events.js';
 import { createPgBuildStore } from './buildStore.js';
@@ -21,6 +21,7 @@ import {
   computeCost,
 } from '@gameforge/model-providers';
 import type { VisualReviewDeps } from '@gameforge/test-runner';
+import { runRemoteJob } from './remoteRunner.js';
 
 /**
  * Builds-queue processor — runs the 15-phase build pipeline (§11) inside
@@ -69,12 +70,18 @@ function createContainerRunner(): RunnerLike {
       const capability = capFor(opts.capability);
       const image = IMAGE_ALLOWLIST[capability]?.[0];
       if (!image) throw new Error(`no image allowlisted for capability ${capability}`);
-      const result = await runJob({
+      const result = await runRemoteJob({
         jobId: `bexec-${counter++}`,
         image,
         command: opts.command,
         workdirHostPath: opts.cwd,
-        env: opts.env ?? {},
+        // Workload containers run as uid 65532 with a read-only rootfs. npm
+        // otherwise tries to create /.npm because that uid has no home entry.
+        env: {
+          HOME: '/tmp',
+          NPM_CONFIG_CACHE: '/tmp/.npm',
+          ...(opts.env ?? {}),
+        },
         cpuQuota: 2,
         memMb: 2048,
         pidsLimit: 512,
@@ -211,19 +218,25 @@ export async function processBuild(
     await markBuilding();
     await noteRun(AgentEventKind.BUILD_STARTED, { buildId, revisionSha });
 
-    const result = await runBuildPipeline({
-      projectDir,
-      buildId,
-      revision: revisionSha,
-      // Keep the build inside the work root (not /tmp) so the runner's
-      // containment check passes.
-      buildDir: path.join(storageRoot, 'work', `build-${buildId}`),
-      runner: createContainerRunner(),
-      browser: await createBrowser(),
-      store,
-      criteria: DEFAULT_CRITERIA,
-      vision,
-    });
+    const browser = await createBrowser();
+    let result;
+    try {
+      result = await runBuildPipeline({
+        projectDir,
+        buildId,
+        revision: revisionSha,
+        // Keep the build inside the work root (not /tmp) so the runner's
+        // containment check passes.
+        buildDir: path.join(storageRoot, 'work', `build-${buildId}`),
+        runner: createContainerRunner(),
+        browser,
+        store,
+        criteria: DEFAULT_CRITERIA,
+        vision,
+      });
+    } finally {
+      await browser.close();
+    }
 
     const verdict = result.verdict;
     await pool.query(

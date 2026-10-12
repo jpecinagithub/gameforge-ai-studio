@@ -202,6 +202,23 @@ async function main() {
     }
   });
 
+  // Crash reconciliation: DB is authoritative. Re-adding an existing BullMQ
+  // job id is idempotent, while a queued row with no Redis job would otherwise
+  // remain stuck forever after a Redis reset or interrupted enqueue.
+  const queued = await pool.query(
+    `SELECT id, project_id, revision_sha FROM build_jobs
+     WHERE status = 'queued' ORDER BY created_at ASC LIMIT 100`,
+  );
+  let reconciled = 0;
+  for (const row of queued.rows as Array<{ id: string; project_id: string; revision_sha: string }>) {
+    await queues.builds.add(
+      'build',
+      { buildId: row.id, projectId: row.project_id, revisionSha: row.revision_sha },
+      { jobId: row.id },
+    );
+    reconciled += 1;
+  }
+
   const shutdown = async (signal: string) => {
     jsonLog('info', `received ${signal}; draining workers`);
     await Promise.all([agentRunsWorker.close(), buildsWorker.close()]);
@@ -218,6 +235,7 @@ async function main() {
     concurrency,
     buildConcurrency,
     provider: provider ? 'configured' : 'missing',
+    reconciledBuilds: reconciled,
   });
 }
 

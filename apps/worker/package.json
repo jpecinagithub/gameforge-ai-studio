@@ -1,13 +1,14 @@
 {
   "dependencies": {
-    "@gameforge/shared": "^0.1.0",
-    "bullmq": "^5.0.0",
-    "ioredis": "^5.4.0",
-    "pg": "^8.13.0",
     "@gameforge/agent-core": "^0.1.0",
     "@gameforge/model-providers": "^0.1.0",
+    "@gameforge/shared": "^0.1.0",
     "@gameforge/test-runner": "^0.1.0",
-    "gameforge-runner": "^0.1.0"
+    "bullmq": "^5.0.0",
+    "gameforge-runner": "^0.1.0",
+    "ioredis": "^5.4.0",
+    "pg": "^8.13.0",
+    "playwright": "1.63.0"
   },
   "devDependencies": {
     "@types/pg": "^8.11.0",

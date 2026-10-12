@@ -19,8 +19,8 @@ if [ ! -f .env ]; then
   echo "    then re-run this script."
   exit 1
 fi
-# shellcheck disable=SC1091
-set -a; source .env; set +a
+# Do not `source` dotenv files: API tokens may contain shell metacharacters.
+STORAGE_ROOT="$(sed -n 's/^STORAGE_ROOT=//p' .env | tail -n 1)"
 : "${STORAGE_ROOT:=/var/lib/gameforge}"
 echo "    STORAGE_ROOT=$STORAGE_ROOT"
 
@@ -29,6 +29,7 @@ for d in projects blobs artifacts backups work runner-logs; do
   mkdir -p "$STORAGE_ROOT/$d"
 done
 chmod 0700 "$STORAGE_ROOT"
+chown -R 65532:65532 "$STORAGE_ROOT"
 echo "    created: projects blobs artifacts backups work runner-logs"
 
 echo "==> 4/5 Pre-pulling pinned images (runner uses --pull never)..."
@@ -44,14 +45,18 @@ for img in \
   docker pull "$img"
 done
 
-echo "==> 5/5 Creating the gf-egress network (registry-only jobs)..."
+echo "==> 5/5 Creating the gf-egress network (dependency installation jobs)..."
 if docker network inspect gf-egress >/dev/null 2>&1; then
-  echo "    gf-egress already exists."
+  if [ "$(docker network inspect -f '{{.Internal}}' gf-egress)" = "true" ]; then
+    echo "    replacing obsolete internal gf-egress network..."
+    docker network rm gf-egress
+    docker network create gf-egress
+  else
+    echo "    gf-egress already exists."
+  fi
 else
-  docker network create --internal gf-egress
-  echo "    created internal network 'gf-egress'."
-  echo "    NOTE: the egress PROXY (allowlist: npm registry + Playwright CDN) is"
-  echo "    wired in Phase 7. Until then, registry-only jobs fail closed."
+  docker network create gf-egress
+  echo "    created network 'gf-egress'."
 fi
 
 echo ""

@@ -60,16 +60,19 @@ function wrapPage(page: {
 export async function createBrowser(): Promise<BrowserLike> {
   try {
     const { chromium } = (await import('playwright')) as typeof import('playwright');
-    const browser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--use-gl=swiftshader',
-        '--enable-unsafe-swiftshader',
-      ],
-    });
+    const endpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
+    const browser = endpoint
+      ? await chromium.connect(endpoint)
+      : await chromium.launch({
+          headless: true,
+          args: [
+            '--no-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--use-gl=swiftshader',
+            '--enable-unsafe-swiftshader',
+          ],
+        });
     return {
       newPage: async () => wrapPage(await browser.newPage()),
       close: async () => {

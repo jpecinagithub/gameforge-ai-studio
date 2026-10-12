@@ -181,8 +181,9 @@ export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
     const row = rows[0] as Record<string, unknown>;
     // Containment: the artifacts dir is the jail.
     const root = resolve(join(fastify.gameforge.storageRoot, 'artifacts'));
-    const abs = resolve(join(root, String(row.build_id), String(row.path)));
-    if (abs !== root && !abs.startsWith(root + sep)) throw notFound('artifact');
+    const buildRoot = resolve(join(root, String(row.build_id)));
+    const abs = resolve(join(buildRoot, String(row.path)));
+    if (abs !== buildRoot && !abs.startsWith(buildRoot + sep)) throw notFound('artifact');
     let data;
     try {
       const st = await stat(abs);

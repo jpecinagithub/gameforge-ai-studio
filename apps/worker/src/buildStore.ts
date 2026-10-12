@@ -7,8 +7,7 @@ import type { DbPool } from './db.js';
 /**
  * PostgreSQL-backed BuildStore (§11, §22).
  *
- * - build_jobs rows are upserted (the API inserts the 'queued' row; the
- *   pipeline owns it afterwards).
+ * - build_jobs rows are created by the API; the pipeline only updates them.
  * - Artifacts are written to content-addressed storage under
  *   STORAGE_ROOT/artifacts/<buildId>/<name>, with metadata in build_artifacts.
  */
@@ -17,15 +16,15 @@ export function createPgBuildStore(pool: DbPool, storageRoot: string): BuildStor
 
   return {
     async saveBuildJob(rec: BuildRecord): Promise<void> {
-      await pool.query(
-        `INSERT INTO build_jobs (id, revision_sha, status, build_dir, started_at, ended_at, verdict)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         ON CONFLICT (id) DO UPDATE SET
-           status = EXCLUDED.status,
-           started_at = COALESCE(build_jobs.started_at, EXCLUDED.started_at),
-           ended_at = EXCLUDED.ended_at,
-           verdict = EXCLUDED.verdict,
-           build_dir = EXCLUDED.build_dir`,
+      const result = await pool.query(
+        `UPDATE build_jobs SET
+           revision_sha = $2,
+           status = $3,
+           build_dir = $4,
+           started_at = COALESCE(started_at, $5),
+           ended_at = $6,
+           verdict = $7
+         WHERE id = $1`,
         [
           rec.buildId,
           rec.revision,
@@ -36,6 +35,7 @@ export function createPgBuildStore(pool: DbPool, storageRoot: string): BuildStor
           rec.verdictNotes ? JSON.stringify({ notes: rec.verdictNotes }) : null,
         ],
       );
+      if (result.rowCount === 0) throw new Error(`build row missing: ${rec.buildId}`);
     },
 
     async saveTestResult(buildId, r): Promise<void> {
@@ -68,9 +68,17 @@ export function createPgBuildStore(pool: DbPool, storageRoot: string): BuildStor
       const hash = createHash('sha256').update(a.data).digest('hex');
       const dir = path.join(artifactRoot, buildId);
       mkdirSync(dir, { recursive: true });
-      const safeName = a.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const relPath = `${buildId}/${safeName}`;
-      writeFileSync(path.join(dir, safeName), a.data);
+      const relPath = a.name.replace(/\\/g, '/').replace(/^\/+/, '');
+      const parts = relPath.split('/');
+      if (!relPath || parts.some((part) => !part || part === '.' || part === '..')) {
+        throw new Error(`unsafe artifact path: ${a.name}`);
+      }
+      const abs = path.resolve(dir, ...parts);
+      if (abs !== dir && !abs.startsWith(dir + path.sep)) {
+        throw new Error(`artifact path escapes build root: ${a.name}`);
+      }
+      mkdirSync(path.dirname(abs), { recursive: true });
+      writeFileSync(abs, a.data);
       const res = await pool.query(
         `INSERT INTO build_artifacts (build_id, kind, path, size_bytes, content_hash, metadata)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,

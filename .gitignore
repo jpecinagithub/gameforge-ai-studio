@@ -8,6 +8,8 @@ build/
 # Secrets — NEVER commit. The server .env holds CLOUDFLARE_API_TOKEN, POSTGRES_PASSWORD.
 .env
 infra/deploy/.env
+infra/deploy/tailscale-certs/
+infra/deploy/*.bak*
 *.env.local
 
 # Storage (project repos, uploads, artifacts, backups) — host data, not code.
