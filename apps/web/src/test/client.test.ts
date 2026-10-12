@@ -5,6 +5,7 @@ import {
   createProject,
   eventsUrl,
   listBuilds,
+  listLibraryGames,
   listMessages,
   listProjects,
   listRuns,
@@ -37,6 +38,12 @@ describe('api client', () => {
     const url = String(fetchMock.mock.calls[0][0]);
     expect(url).toContain('/api/v1/projects?page=2&pageSize=10');
     expect(page.total).toBe(0);
+  });
+
+  it('loads the global playable library', async () => {
+    const fetchMock = mockFetchOnce({ ok: true, status: 200, json: async () => [] });
+    expect(await listLibraryGames()).toEqual([]);
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/api/v1/library');
   });
 
   it('URL-encodes path params', async () => {

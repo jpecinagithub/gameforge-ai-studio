@@ -396,6 +396,41 @@ describe('manual builds', () => {
   });
 });
 
+describe('game library', () => {
+  it('lists only the server-selected verified build for each playable project', async () => {
+    const db = createStubDb();
+    db.on(/JOIN build_jobs b ON b.id = p.last_good_build_id/, (text) => {
+      expect(text).toContain("b.status = 'verified'");
+      expect(text).toContain("p.status = 'active'");
+      return {
+        rows: [{
+          project_id: PROJECT_ROW.id,
+          slug: PROJECT_ROW.slug,
+          name: 'Neon Arena',
+          description: 'Five-minute survival game',
+          kind: '3d-survival',
+          engine: 'three',
+          build_id: 'build_01JVERIFIED1234567890123',
+          revision_sha: 'b'.repeat(40),
+          published_at: '2026-10-12T08:00:00.000Z',
+        }],
+        rowCount: 1,
+      };
+    });
+
+    const { server } = await makeServer({ db });
+    const res = await server.inject({ method: 'GET', url: '/api/v1/library' });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual([expect.objectContaining({
+      projectId: PROJECT_ROW.id,
+      name: 'Neon Arena',
+      buildId: 'build_01JVERIFIED1234567890123',
+      previewUrl: expect.stringContaining('/b/build_01JVERIFIED1234567890123/'),
+    })]);
+  });
+});
+
 describe('settings', () => {
   it('PATCH /settings refuses secret-like keys', async () => {
     const { server } = await makeServer();

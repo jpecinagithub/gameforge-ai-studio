@@ -7,6 +7,7 @@ import { Assets } from '../pages/Assets';
 import { Builds } from '../pages/Builds';
 import { Revisions } from '../pages/Revisions';
 import { Settings } from '../pages/Settings';
+import { Library } from '../pages/Library';
 
 vi.mock('../api/client', () => ({
   getProject: vi.fn(async () => ({ id: 'p1', name: 'Test Game' })),
@@ -16,6 +17,7 @@ vi.mock('../api/client', () => ({
   assetDownloadUrl: (id: string) => `http://127.0.0.1:8090/api/v1/assets/${id}/download`,
   listRevisions: vi.fn(async () => ({ items: [], page: 1, pageSize: 50, total: 0 })),
   listBuilds: vi.fn(async () => []),
+  listLibraryGames: vi.fn(async () => []),
   getBuild: vi.fn(async () => ({ id: 'b1', status: 'verified' })),
   getBuildTests: vi.fn(async () => []),
   getBuildReviews: vi.fn(async () => []),
@@ -74,6 +76,12 @@ describe('Phase 5 pages', () => {
     expect(html).toContain('Appearance');
     expect(html).toContain('Backend');
     expect(html).toContain('Models');
+  });
+
+  it('Library page renders its public catalogue header without crashing', () => {
+    const html = render('/library', <Library />);
+    expect(html).toContain('Library');
+    expect(html).toContain('Ready to play');
   });
 
   it('Assets page shows kind filter chips when multiple kinds exist', async () => {

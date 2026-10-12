@@ -6,6 +6,7 @@ import { Assets } from './pages/Assets';
 import { Builds } from './pages/Builds';
 import { Revisions } from './pages/Revisions';
 import { Settings } from './pages/Settings';
+import { Library } from './pages/Library';
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
           <Route path="/projects/:id/builds" element={<Builds />} />
           <Route path="/projects/:id/revisions" element={<Revisions />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/library" element={<Library />} />
           <Route path="*" element={<Dashboard />} />
         </Routes>
       </BrowserRouter>

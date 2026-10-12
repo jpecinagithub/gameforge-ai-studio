@@ -23,6 +23,18 @@ interface BuildRow {
   created_at: string;
 }
 
+interface LibraryRow {
+  project_id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  kind: string | null;
+  engine: string;
+  build_id: string;
+  revision_sha: string;
+  published_at: string;
+}
+
 const BUILD_COLS = `id, project_id, run_id, revision_sha, status, verdict, started_at, ended_at, created_at`;
 
 function previewUrlFor(status: string, buildId: string): string | null {
@@ -49,6 +61,36 @@ function toBuildJson(b: BuildRow) {
 
 export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
   const { db, queues } = fastify.gameforge;
+
+  // Public catalogue: one playable, fully verified build per active project.
+  // `last_good_build_id` is maintained atomically by the build processor, so
+  // the library never links to an obsolete or failed attempt.
+  fastify.get('/library', async () => {
+    const { rows } = await db.query<LibraryRow>(
+      `SELECT p.id AS project_id, p.slug, p.name, p.description, p.kind, p.engine,
+              b.id AS build_id, b.revision_sha,
+              COALESCE(b.ended_at, b.created_at) AS published_at
+         FROM projects p
+         JOIN build_jobs b ON b.id = p.last_good_build_id
+        WHERE p.deleted_at IS NULL
+          AND p.status = 'active'
+          AND b.status = 'verified'
+        ORDER BY COALESCE(b.ended_at, b.created_at) DESC, p.name ASC`,
+    );
+
+    return rows.map((row) => ({
+      projectId: row.project_id,
+      slug: row.slug,
+      name: row.name,
+      description: row.description,
+      kind: row.kind,
+      engine: row.engine,
+      buildId: row.build_id,
+      revisionSha: row.revision_sha,
+      previewUrl: previewUrlFor('verified', row.build_id),
+      publishedAt: row.published_at,
+    }));
+  });
 
   fastify.post('/projects/:id/builds', async (req, reply) => {
     const { id: projectId } = req.params as { id: string };

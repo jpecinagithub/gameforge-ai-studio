@@ -10,6 +10,7 @@ import type {
   ExecutionModeValue,
   ModelCapabilities,
   ModelInfo,
+  LibraryGame,
   Project,
   ProjectPage,
   ReviewResult,
@@ -135,6 +136,10 @@ export const clearMessages = (projectId: string): Promise<{ deleted: number }> =
 
 export const deleteProject = (projectId: string): Promise<void> =>
   request<void>(`/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+
+/** All active games whose latest good build passed every verification phase. */
+export const listLibraryGames = (): Promise<LibraryGame[]> =>
+  get<LibraryGame[]>('/library');
 
 export const askQuestion = (
   projectId: string,

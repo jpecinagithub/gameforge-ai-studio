@@ -30,6 +30,20 @@ export interface ProjectPage {
   total: number;
 }
 
+/** A project's latest fully verified, directly playable build. */
+export interface LibraryGame {
+  projectId: string;
+  slug: string;
+  name: string;
+  description?: string | null;
+  kind?: string | null;
+  engine: string;
+  buildId: string;
+  revisionSha: string;
+  previewUrl: string;
+  publishedAt: string;
+}
+
 export interface AgentRun {
   id: string;
   project_id: string;
