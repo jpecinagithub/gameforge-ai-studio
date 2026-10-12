@@ -47,6 +47,7 @@ import { EmptyState } from '../components/EmptyState';
 import { CodeEditor } from '../components/code/CodeEditor';
 import { QuestionCard, type QuestionPayload } from '../components/QuestionCard';
 import { UpdatePrompt } from '../components/UpdatePrompt';
+import { formatConsoleEvent, type ConsoleEventTag } from '../consoleEvents';
 
 const TERMINAL = new Set(['completed', 'failed', 'canceled', 'interrupted']);
 type MobileTab = 'chat' | 'preview' | 'builds' | 'code' | 'more';
@@ -108,6 +109,7 @@ export function Studio() {
   }, [loadAll]);
 
   const activeRun = runs.find((r) => !TERMINAL.has(r.status)) ?? null;
+  const displayedRun = activeRun ?? runs[0] ?? null;
 
   // Poll runs/builds while a run is active (SSE covers events; polling covers state).
   useEffect(() => {
@@ -143,21 +145,19 @@ export function Studio() {
 
   const { connected } = useRunEvents(activeRun?.id ?? null, handleSseEvent);
 
-  // REST fallback: load event history when the active run changes (covers SSE failures).
+  // Load the active run, or the latest completed run after a reload. This keeps
+  // the console useful as a persistent execution transcript, not only live UI.
   useEffect(() => {
-    if (!activeRun) return;
-    listRunEvents(activeRun.id)
+    if (!displayedRun) {
+      setEvents([]);
+      return;
+    }
+    listRunEvents(displayedRun.id)
       .then((evts) => {
-        if (evts.length > 0) {
-          setEvents((prev) => {
-            const seen = new Set(prev.map((e) => `${e.run_id}:${e.seq}`));
-            const fresh = evts.filter((e) => !seen.has(`${e.run_id}:${e.seq}`));
-            return [...prev, ...fresh].sort((a, b) => a.seq - b.seq).slice(-500);
-          });
-        }
+        setEvents(evts.sort((a, b) => a.seq - b.seq).slice(-500));
       })
       .catch(() => {});
-  }, [activeRun?.id]);
+  }, [displayedRun?.id]);
 
   // "/" focuses the composer; Escape blurs it.
   useEffect(() => {
@@ -485,22 +485,30 @@ export function Studio() {
         {events.length === 0 && (
           <p className="font-sans text-sm text-zinc-500">{t('console.empty')}</p>
         )}
-        {events.map((e) => (
-          <div
-            key={`${e.run_id}:${e.seq}`}
-            className="flex items-baseline gap-2 rounded border border-zinc-800/60 bg-zinc-900/40 px-2 py-1"
-          >
-            <span className="shrink-0 text-zinc-600">{fmtTime(e.created_at)}</span>
-            <span className="shrink-0 rounded bg-zinc-800 px-1.5 py-0.5 text-cyan-300">
-              {e.kind}
-            </span>
-            <span className="truncate text-zinc-400">
-              {typeof e.payload?.summary === 'string'
-                ? e.payload.summary
-                : `#${e.seq}`}
-            </span>
-          </div>
-        ))}
+        {events.map((e) => {
+          const line = formatConsoleEvent(e);
+          const tones: Record<ConsoleEventTag, string> = {
+            status: 'text-sky-300',
+            log: 'text-zinc-300',
+            tool_call: 'text-violet-300',
+            tool_result: line.ok === false ? 'text-red-300' : 'text-emerald-300',
+            error: 'text-red-300',
+          };
+          return (
+            <div
+              key={`${e.run_id}:${e.seq}`}
+              className="rounded border border-zinc-800/60 bg-zinc-950/45 px-2.5 py-2"
+            >
+              <div className="mb-1 flex items-center gap-2">
+                <strong className={`text-[11px] ${tones[line.tag]}`}>{line.tag}</strong>
+                <span className="text-[10px] text-zinc-700">{fmtTime(e.created_at)}</span>
+              </div>
+              <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-5 text-zinc-300">
+                {line.text}
+              </pre>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
