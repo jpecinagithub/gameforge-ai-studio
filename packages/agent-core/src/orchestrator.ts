@@ -245,6 +245,11 @@ function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
       try {
         let roleCtx: ToolContext = { ...baseCtx, role };
         if (useWorktree) {
+          // Capture any accepted edits left in the main checkout by an earlier
+          // interrupted run before branching. Otherwise the specialist starts
+          // from stale HEAD while dirty main files keep changing underneath it,
+          // producing an avoidable merge conflict at integration time.
+          await git.checkpoint(`before dispatch task ${task.id}`);
           wt = await createWorktree(workDir, runId, task.id);
           roleCtx = { ...baseCtx, role, workDir: wt, git: createGitOps(wt) };
         }
