@@ -92,7 +92,16 @@
     "title": "Proyectos",
     "updated": "Actualizado {{date}}",
     "delete": "Eliminar proyecto",
+    "edit": "Editar proyecto",
     "deleteConfirm": "¿Eliminar el proyecto \"{{name}}\"?"
+  },
+  "editProject": {
+    "title": "Editar proyecto",
+    "name": "Nombre",
+    "description": "Descripción",
+    "save": "Guardar cambios",
+    "saving": "Guardando…",
+    "error": "No se pudo actualizar el proyecto."
   },
   "errors": {
     "network": "Error de red — ¿está el backend en marcha?",

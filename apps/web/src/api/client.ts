@@ -116,6 +116,20 @@ export const getProject = (id: string): Promise<Project> =>
 export const createProject = (input: CreateProjectInput): Promise<Project> =>
   post<Project>('/projects', input);
 
+export interface UpdateProjectInput {
+  name?: string;
+  description?: string | null;
+}
+
+export const updateProject = (
+  projectId: string,
+  input: UpdateProjectInput,
+): Promise<Project> =>
+  request<Project>(`/projects/${encodeURIComponent(projectId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
 /* ---------- Messages ---------- */
 
 export interface PostMessageInput {

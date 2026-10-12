@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Archive, FolderPlus, Gamepad2, Trash2 } from 'lucide-react';
+import { Archive, FolderPlus, Gamepad2, Pencil, Trash2 } from 'lucide-react';
 import {
   createProject,
   deleteProject,
   listProjects,
+  updateProject,
 } from '../api/client';
 import type { Project } from '../types';
 import { Header } from '../components/Header';
 import { EmptyState } from '../components/EmptyState';
 import { CardSkeleton } from '../components/Skeletons';
 import { NewProjectDialog, type NewProjectValues } from '../components/NewProjectDialog';
+import { EditProjectDialog, type EditProjectValues } from '../components/EditProjectDialog';
 import { UpdatePrompt } from '../components/UpdatePrompt';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -24,6 +26,9 @@ export function Dashboard() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Project | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState('loading');
@@ -75,6 +80,26 @@ export function Dashboard() {
       setState('error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleEdit = async (values: EditProjectValues) => {
+    if (!editing) return;
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const updated = await updateProject(editing.id, {
+        name: values.name,
+        description: values.description || null,
+      });
+      setProjects((prev) => prev.map((project) => (
+        project.id === updated.id ? updated : project
+      )));
+      setEditing(null);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : t('editProject.error'));
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -161,7 +186,7 @@ export function Dashboard() {
                 className="group relative rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-600"
               >
                 <Link to={`/projects/${p.id}`} className="block">
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start justify-between gap-2 pr-14">
                     <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">
                       {p.name}
                     </h2>
@@ -182,25 +207,34 @@ export function Dashboard() {
                     </span>
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!window.confirm(t('dashboard.deleteConfirm', { name: p.name }))) return;
-                    try {
-                      await deleteProject(p.id);
-                      setProjects((prev) => prev.filter((x) => x.id !== p.id));
-                    } catch (err) {
-                      alert(err instanceof Error ? err.message : String(err));
-                    }
-                  }}
-                  title={t('dashboard.delete')}
-                  aria-label={t('dashboard.delete')}
-                  className="absolute right-2 top-2 rounded-md p-1.5 text-zinc-600 opacity-0 transition-opacity hover:bg-red-900/40 hover:text-red-400 group-hover:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </button>
+                <div className="absolute right-2 top-2 flex gap-1 rounded-lg bg-zinc-900/90 p-0.5 shadow-sm">
+                  <button
+                    type="button"
+                    onClick={() => { setEditError(null); setEditing(p); }}
+                    title={t('dashboard.edit')}
+                    aria-label={t('dashboard.edit')}
+                    className="rounded-md p-1.5 text-zinc-400 hover:bg-cyan-900/40 hover:text-cyan-300"
+                  >
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!window.confirm(t('dashboard.deleteConfirm', { name: p.name }))) return;
+                      try {
+                        await deleteProject(p.id);
+                        setProjects((prev) => prev.filter((x) => x.id !== p.id));
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : String(err));
+                      }
+                    }}
+                    title={t('dashboard.delete')}
+                    aria-label={t('dashboard.delete')}
+                    className="rounded-md p-1.5 text-zinc-500 hover:bg-red-900/40 hover:text-red-400"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -213,6 +247,14 @@ export function Dashboard() {
         error={createError}
         onClose={() => { setDialogOpen(false); setCreateError(null); }}
         onSubmit={(v) => void handleCreate(v)}
+      />
+      <EditProjectDialog
+        key={editing?.id ?? 'closed'}
+        project={editing}
+        busy={savingEdit}
+        error={editError}
+        onClose={() => { if (!savingEdit) { setEditing(null); setEditError(null); } }}
+        onSubmit={(values) => void handleEdit(values)}
       />
       <UpdatePrompt />
     </div>

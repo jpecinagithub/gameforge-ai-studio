@@ -9,6 +9,7 @@ import {
   listMessages,
   listProjects,
   listRuns,
+  updateProject,
 } from '../api/client';
 
 function mockFetchOnce(response: {
@@ -70,6 +71,25 @@ describe('api client', () => {
     const body = JSON.parse(String(init.body));
     expect(body.name).toBe('X');
     expect(body.template).toBe('racing');
+  });
+
+  it('PATCHes editable project metadata', async () => {
+    const fetchMock = mockFetchOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 'p1', name: 'Nuevo nombre', description: 'Nueva descripción' }),
+    });
+    await updateProject('project id', {
+      name: 'Nuevo nombre',
+      description: 'Nueva descripción',
+    });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(String(url)).toContain('/api/v1/projects/project%20id');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(String(init.body))).toEqual({
+      name: 'Nuevo nombre',
+      description: 'Nueva descripción',
+    });
   });
 
   it('parses the typed error envelope', async () => {

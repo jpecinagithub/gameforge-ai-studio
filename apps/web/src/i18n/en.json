@@ -92,7 +92,16 @@
     "title": "Projects",
     "updated": "Updated {{date}}",
     "delete": "Delete project",
+    "edit": "Edit project",
     "deleteConfirm": "Delete project \"{{name}}\"?"
+  },
+  "editProject": {
+    "title": "Edit project",
+    "name": "Name",
+    "description": "Description",
+    "save": "Save changes",
+    "saving": "Saving…",
+    "error": "Couldn't update the project."
   },
   "errors": {
     "network": "Network error — is the backend running?",
