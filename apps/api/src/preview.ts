@@ -102,6 +102,13 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
       data = Buffer.from(html, 'utf8');
     }
     reply.header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+    // The Studio intentionally renders previews in an opaque sandbox
+    // (`sandbox="allow-scripts"`, without `allow-same-origin`). Vite emits
+    // module scripts and stylesheets with `crossorigin`, so the browser sends
+    // those requests with Origin: null. The artifacts are public, immutable
+    // game files; allowing them to be read cross-origin lets those resources
+    // load without weakening the iframe sandbox.
+    reply.header('access-control-allow-origin', '*');
     reply.header('x-content-type-options', 'nosniff');
     reply.header('referrer-policy', 'no-referrer');
     reply.header('cross-origin-opener-policy', 'same-origin');
@@ -161,6 +168,9 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
       data = Buffer.from(html, 'utf8');
     }
     reply.header('content-type', CONTENT_TYPES[ext] ?? 'application/octet-stream');
+    // Source previews use the same opaque iframe sandbox as persisted builds.
+    // Their scripts and styles therefore need an explicit CORS response too.
+    reply.header('access-control-allow-origin', '*');
     reply.header('x-content-type-options', 'nosniff');
     reply.header('referrer-policy', 'no-referrer');
     reply.header(

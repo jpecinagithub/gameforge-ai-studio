@@ -146,8 +146,10 @@ describe('buildPreviewServer', () => {
     expect(await res.text()).toContain('preview');
     expect(res.headers.get('content-security-policy')).toContain('frame-ancestors https://studio.example.com');
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('access-control-allow-origin')).toBe('*');
     const js = await get(`/b/${goodBuild}/app.js`);
     expect(js.headers.get('content-type')).toContain('text/javascript');
+    expect(js.headers.get('access-control-allow-origin')).toBe('*');
   });
 
   it('404s failed builds, unknown builds, bad ids, and traversal', async () => {
