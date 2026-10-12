@@ -253,20 +253,27 @@ export async function processBuild(
 
     if (verdict === BuildStatus.VERIFIED || verdict === BuildStatus.PARTIAL) {
       const head = await gitHead(projectDir);
-      await pool.query(
-        `UPDATE projects SET last_good_build_id = $2,
-           current_revision_id = COALESCE($3, current_revision_id)
-         WHERE id = $1`,
-        [projectId, buildId, head],
-      );
       // Phase 5: record a healthy revision for the revision history UI.
       if (head) {
-        await pool.query(
+        const revision = await pool.query(
           `INSERT INTO project_revisions
              (project_id, git_sha, message, author_kind, run_id, checkpoint_kind, healthy)
            VALUES ($1, $2, $3, 'system', $4, 'land', true)
-           ON CONFLICT (project_id, git_sha) DO UPDATE SET healthy = true`,
+           ON CONFLICT (project_id, git_sha) DO UPDATE SET healthy = true
+           RETURNING id`,
           [projectId, head, `build ${buildId} ${verdict}`, runId],
+        );
+        const revisionId = (revision.rows[0] as { id?: string } | undefined)?.id;
+        if (!revisionId) throw new Error('revision insert did not return an id');
+        await pool.query(
+          `UPDATE projects SET last_good_build_id = $2, current_revision_id = $3
+           WHERE id = $1`,
+          [projectId, buildId, revisionId],
+        );
+      } else {
+        await pool.query(
+          `UPDATE projects SET last_good_build_id = $2 WHERE id = $1`,
+          [projectId, buildId],
         );
       }
       logF('build passed; last_good updated', { verdict });
