@@ -300,6 +300,7 @@ function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
 interface VerifyCycle {
   buildId: string;
   verdict: BuildStatus;
+  diagnostics: string | null;
   evidence: EvidenceSummary | null;
   review: BlindReviewResult | null;
 }
@@ -628,7 +629,10 @@ export async function runMultiAgentJob(
         keptIncumbent: review.keptIncumbent,
       });
     }
-    return { buildId: execRes.buildId, verdict: final.status, evidence, review };
+    const diagnostics = final.verdict == null
+      ? null
+      : JSON.stringify(final.verdict).slice(0, 5000);
+    return { buildId: execRes.buildId, verdict: final.status, diagnostics, evidence, review };
   }
 
   /** Measurable progress: verdict rank up, or review flipped to the candidate. */
@@ -655,7 +659,8 @@ export async function runMultiAgentJob(
       }
       const gap =
         current.review?.biggestGap ??
-        `build ${current.buildId} failed with verdict ${current.verdict}`;
+        `build ${current.buildId} failed with verdict ${current.verdict}. ` +
+          (current.diagnostics ? `Pipeline diagnostics: ${current.diagnostics}` : 'No pipeline diagnostics were returned.');
       const evidenceNote = current.evidence
         ? ` Evidence: ${current.evidence.screenshots} screenshots, ${current.evidence.consoleErrors} console errors, blank=${current.evidence.blankDetected}.`
         : '';

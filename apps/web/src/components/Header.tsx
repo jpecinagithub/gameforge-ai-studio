@@ -12,8 +12,13 @@ export function Header() {
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-zinc-800 bg-zinc-950/80 px-4 backdrop-blur dark:border-zinc-800">
       <Link to="/" className="flex items-center gap-2.5" aria-label={t('app.name')}>
         <img src="/icons/icon-192.svg" alt="" className="h-8 w-8" aria-hidden="true" />
-        <span className="text-sm font-semibold tracking-tight text-zinc-100">
-          {t('app.name')}
+        <span className="flex min-w-0 flex-col leading-none">
+          <span className="truncate text-sm font-semibold tracking-tight text-zinc-100">
+            {t('app.name')}
+          </span>
+          <span className="mt-1 text-[10px] font-medium tracking-wide text-cyan-400/70">
+            {t('app.byline')}
+          </span>
         </span>
       </Link>
 

@@ -124,6 +124,7 @@ afterEach(async () => {
   server = null;
   delete process.env.CLOUDFLARE_API_TOKEN;
   delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.OPENROUTER_AGENT_MODEL;
 });
 
 /* ------------------------------------------------------------------ */
@@ -146,6 +147,18 @@ describe('system', () => {
     const res = await server.inject({ method: 'GET', url: '/api/v1/ready' });
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({ postgres: 'down', redis: 'up' });
+  });
+
+  it('reports the effective server-managed OpenRouter model', async () => {
+    process.env.OPENROUTER_AGENT_MODEL = 'openai/gpt-5.6-luna';
+    const { server } = await makeServer();
+    const res = await server.inject({ method: 'GET', url: '/api/v1/models/capabilities' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      provider: 'openrouter',
+      activeModel: 'openai/gpt-5.6-luna',
+      serverManaged: true,
+    });
   });
 
   it('unknown route returns the 404 envelope', async () => {

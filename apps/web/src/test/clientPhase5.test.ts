@@ -109,12 +109,15 @@ describe('Phase 5 client functions', () => {
       json: async () => ({
         capabilityKeys: ['supports_tools'],
         agentRoles: ['director', 'reviewer'],
-        provider: 'cloudflare',
+        provider: 'openrouter',
+        activeModel: 'openai/gpt-5.6-luna',
+        serverManaged: true,
       }),
     });
     const caps = await getModelCapabilities();
     expect(caps.agentRoles).toContain('reviewer');
-    expect(caps.provider).toBe('cloudflare');
+    expect(caps.provider).toBe('openrouter');
+    expect(caps.activeModel).toBe('openai/gpt-5.6-luna');
   });
 });
 

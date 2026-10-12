@@ -466,6 +466,11 @@ const gameplaySmoke: Phase = {
       if (!changed) {
         return phaseResult('fail', 'game state did not change during scripted playthrough', {
           error: 'state-changed assertion failed',
+          data: {
+            baselineState: states[0]?.slice(0, 2000) ?? null,
+            finalState: states[states.length - 1]?.slice(0, 2000) ?? null,
+            actions: ctx.script,
+          },
         });
       }
       return phaseResult('pass', `${report.shots.length} camera(s), state changed, evidence clean`, {
@@ -799,7 +804,14 @@ export async function runBuildPipeline(
     seed: options.seed ?? studioJson.seed ?? seed,
     bootMs: studioJson.bootMs ?? bootMs,
     cameras: cameras ?? studioJson.cameras ?? ['default'],
-    script: script ?? studioJson.scripts ?? [{ steps: 60, dtMs: 16.666 }],
+    // Generated games commonly boot into a start menu. Exercise the two
+    // conventional start keys before movement so the smoke test measures
+    // gameplay rather than declaring a healthy menu "static".
+    script: script ?? studioJson.scripts ?? [
+      { keys: ['Enter'], steps: 1, dtMs: 16.666 },
+      { keys: ['Space'], steps: 2, dtMs: 16.666 },
+      { keys: ['ArrowRight'], steps: 60, dtMs: 16.666 },
+    ],
     criteria,
     studioJson,
     runner,

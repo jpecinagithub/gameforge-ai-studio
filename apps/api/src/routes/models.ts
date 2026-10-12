@@ -4,11 +4,7 @@ import { badRequest, dependencyUnavailable } from '../httpErrors.js';
 import { safeMessage } from '../redact.js';
 import '../types.js';
 
-/**
- * Model registry routes. The registry is populated at startup / on demand from
- * the Cloudflare Workers AI model catalog (model-providers package). No model
- * names are hardcoded here — selection always goes through the registry.
- */
+/** Model registry and effective agent-model configuration routes. */
 
 export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
   const { db, modelProviders } = fastify.gameforge;
@@ -28,12 +24,16 @@ export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
     };
   });
 
-  fastify.get('/models/capabilities', async () => ({
-    // The capability keys the registry tracks; agent roles that bind models.
-    capabilityKeys: ['context_window', 'supports_tools', 'supports_vision', 'supports_json_mode'],
-    agentRoles: Object.values(AgentRole),
-    provider: 'cloudflare',
-  }));
+  fastify.get('/models/capabilities', async () => {
+    const activeModel = process.env.OPENROUTER_AGENT_MODEL?.trim() || null;
+    return {
+      capabilityKeys: ['context_window', 'supports_tools', 'supports_vision', 'supports_json_mode'],
+      agentRoles: Object.values(AgentRole),
+      provider: activeModel ? 'openrouter' : 'unconfigured',
+      activeModel,
+      serverManaged: true,
+    };
+  });
 
   fastify.post('/models/connection-test', async (req) => {
     const apiToken = process.env.CLOUDFLARE_API_TOKEN;

@@ -310,8 +310,11 @@ QUALITY BAR — the game MUST include ALL of these:
 6. CONTROLS: keyboard (arrows/WASD + space) AND touch buttons on screen for mobile. Show controls on the start screen.
 7. VISUALS: draw real sprites with canvas (not just colored rectangles) — character with face/details, themed background with parallax or decoration, distinct enemy designs.
 8. NO BROKEN STATES: the game must never soft-lock. Restart always works. requestAnimationFrame loop with delta time.
-9. TEST HOOK: expose window.__studio with ready(), getState(), setSeed(),
-   listCameras(), and setCamera(). getState() must change while gameplay runs.
+9. TEST HOOK: expose window.__studio with ready(), seed(n), step(dtMs), state(),
+   inspect(), and capture(). You may also expose getState(), setSeed(),
+   listCameras(), and setCamera() aliases. state() must change while gameplay
+   runs. studio.json must include a scripts array that starts the game and then
+   supplies meaningful controls; never leave automated verification on a menu.
 10. VISIBLE FIRST FRAME: use a clearly lit/background-colored scene that occupies
     most of the viewport. A small object on a black background is a failed game.
 

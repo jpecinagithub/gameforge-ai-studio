@@ -1,5 +1,6 @@
 {
   "app": {
+    "byline": "Created by jpecina",
     "name": "GameForge AI Studio",
     "tagline": "Describe a game. Agents build it."
   },
@@ -294,7 +295,11 @@
     "loadError": "Couldn't load settings.",
     "saveError": "Couldn't save settings.",
     "saved": "Saved.",
-    "provider": "Provider"
+    "provider": "Provider",
+    "activeModel": "Active model",
+    "notConfigured": "Not configured",
+    "rolesUsingModel": "Roles using this model",
+    "serverManaged": "This configuration is securely managed by the server. Keys and credentials are never exposed in the browser."
   },
   "revisions": {
     "title": "Revisions",

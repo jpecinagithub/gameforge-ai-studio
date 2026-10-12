@@ -246,7 +246,13 @@ export async function processBuild(
         buildId,
         verdict,
         JSON.stringify({
-          phases: result.results.map((r) => ({ name: r.name, status: r.status, error: r.error ?? null })),
+          phases: result.results.map((r) => ({
+            name: r.name,
+            status: r.status,
+            error: r.error ?? null,
+            notes: r.notes,
+            data: r.data,
+          })),
         }),
       ],
     );

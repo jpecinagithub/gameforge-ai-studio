@@ -1,5 +1,6 @@
 {
   "app": {
+    "byline": "Creado por jpecina",
     "name": "GameForge AI Studio",
     "tagline": "Describe un juego. Los agentes lo construyen."
   },
@@ -294,7 +295,11 @@
     "loadError": "No se pudieron cargar los ajustes.",
     "saveError": "No se pudieron guardar los ajustes.",
     "saved": "Guardado.",
-    "provider": "Proveedor"
+    "provider": "Proveedor",
+    "activeModel": "Modelo activo",
+    "notConfigured": "No configurado",
+    "rolesUsingModel": "Roles que utilizan este modelo",
+    "serverManaged": "Esta configuración está administrada de forma segura por el servidor. Las claves y credenciales nunca se muestran en el navegador."
   },
   "revisions": {
     "title": "Revisiones",

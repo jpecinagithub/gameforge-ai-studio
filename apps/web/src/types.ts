@@ -165,6 +165,8 @@ export interface ModelCapabilities {
   capabilityKeys: string[];
   agentRoles: string[];
   provider: string;
+  activeModel: string | null;
+  serverManaged: boolean;
 }
 
 export interface ChatMessage {

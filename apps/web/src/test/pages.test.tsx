@@ -27,7 +27,13 @@ vi.mock('../api/client', () => ({
   getSettings: vi.fn(async () => ({})),
   patchSettings: vi.fn(async () => ({})),
   listModels: vi.fn(async () => ({ items: [] })),
-  getModelCapabilities: vi.fn(async () => ({ capabilityKeys: [], agentRoles: [], provider: '' })),
+  getModelCapabilities: vi.fn(async () => ({
+    capabilityKeys: [],
+    agentRoles: ['director'],
+    provider: 'openrouter',
+    activeModel: 'openai/gpt-5.6-luna',
+    serverManaged: true,
+  })),
   apiBaseUrl: () => 'http://127.0.0.1:8090',
 }));
 

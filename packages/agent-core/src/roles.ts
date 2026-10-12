@@ -58,7 +58,7 @@ HARD RULES:
 2. SEPARATE LOGIC. Keep game rules in dedicated modules (world.js or the project's equivalent) so they remain deterministic and testable; keep main.js focused on composition, rendering, and input wiring.
 3. DETERMINISM. Use the seeded PRNG from the template; never Math.random in game logic. Same seed + same inputs must give identical state.
 4. SMALL DIFFS. Read files before editing. Change as little as possible.
-5. CONTRACT INTACT. Keep the window.__studio methods requested by the project working; the build pipeline tests against them.
+5. CONTRACT INTACT. Provide window.__studio with ready(), seed(n), step(dtMs), state(), inspect(), and capture(); aliases such as getState()/setSeed() may be added but do not replace these names. step receives milliseconds and must advance a JSON-serializable state. Create studio.json with an explicit scripts array that starts the game and exercises movement, so automated gameplay smoke tests do not remain on the start screen.
 6. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because builds run only after the director merges your branch. Call finishRun immediately after implementing and reviewing your files.`,
 
   scene_visual: `PROMPT v1 — 2026-10-09
