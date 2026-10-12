@@ -127,12 +127,14 @@ export function Library() {
                       {t('library.play')}
                       <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                     </a>
-                    <Link
-                      to={`/projects/${game.projectId}`}
-                      className="inline-flex min-h-11 items-center rounded-lg border border-zinc-700 px-3 text-sm text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800"
-                    >
-                      {t('library.edit')}
-                    </Link>
+                    {game.isEditable && (
+                      <Link
+                        to={`/projects/${game.projectId}`}
+                        className="inline-flex min-h-11 items-center rounded-lg border border-zinc-700 px-3 text-sm text-zinc-300 hover:border-zinc-600 hover:bg-zinc-800"
+                      >
+                        {t('library.edit')}
+                      </Link>
+                    )}
                   </div>
                 </div>
               </article>

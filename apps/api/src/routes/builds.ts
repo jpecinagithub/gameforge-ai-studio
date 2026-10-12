@@ -30,6 +30,7 @@ interface LibraryRow {
   description: string | null;
   kind: string | null;
   engine: string;
+  is_editable: boolean;
   build_id: string;
   revision_sha: string;
   published_at: string;
@@ -68,12 +69,12 @@ export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/library', async () => {
     const { rows } = await db.query<LibraryRow>(
       `SELECT p.id AS project_id, p.slug, p.name, p.description, p.kind, p.engine,
+              (p.deleted_at IS NULL) AS is_editable,
               b.id AS build_id, b.revision_sha,
               COALESCE(b.ended_at, b.created_at) AS published_at
          FROM projects p
          JOIN build_jobs b ON b.id = p.last_good_build_id
-        WHERE p.deleted_at IS NULL
-          AND p.status = 'active'
+        WHERE p.status = 'active'
           AND b.status = 'verified'
         ORDER BY COALESCE(b.ended_at, b.created_at) DESC, p.name ASC`,
     );
@@ -85,6 +86,7 @@ export async function buildRoutes(fastify: FastifyInstance): Promise<void> {
       description: row.description,
       kind: row.kind,
       engine: row.engine,
+      isEditable: row.is_editable,
       buildId: row.build_id,
       revisionSha: row.revision_sha,
       previewUrl: previewUrlFor('verified', row.build_id),

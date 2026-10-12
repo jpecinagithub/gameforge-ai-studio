@@ -410,6 +410,7 @@ describe('game library', () => {
           description: 'Five-minute survival game',
           kind: '3d-survival',
           engine: 'three',
+          is_editable: true,
           build_id: 'build_01JVERIFIED1234567890123',
           revision_sha: 'b'.repeat(40),
           published_at: '2026-10-12T08:00:00.000Z',
@@ -426,6 +427,7 @@ describe('game library', () => {
       projectId: PROJECT_ROW.id,
       name: 'Neon Arena',
       buildId: 'build_01JVERIFIED1234567890123',
+      isEditable: true,
       previewUrl: expect.stringContaining('/b/build_01JVERIFIED1234567890123/'),
     })]);
   });

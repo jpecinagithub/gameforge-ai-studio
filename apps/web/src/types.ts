@@ -38,6 +38,8 @@ export interface LibraryGame {
   description?: string | null;
   kind?: string | null;
   engine: string;
+  /** False when the source project was removed but its deployment remains playable. */
+  isEditable: boolean;
   buildId: string;
   revisionSha: string;
   previewUrl: string;
