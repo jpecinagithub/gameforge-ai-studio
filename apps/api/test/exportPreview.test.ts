@@ -145,6 +145,7 @@ describe('buildPreviewServer', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('preview');
     expect(res.headers.get('content-security-policy')).toContain('frame-ancestors https://studio.example.com');
+    expect(res.headers.get('content-security-policy')).toContain("script-src 'self' 'unsafe-inline'");
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(res.headers.get('access-control-allow-origin')).toBe('*');
     const js = await get(`/b/${goodBuild}/app.js`);

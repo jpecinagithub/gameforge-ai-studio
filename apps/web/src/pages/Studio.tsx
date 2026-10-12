@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { previewSandboxFor } from '../previewSandbox';
 import {
   ArrowLeft,
   ChevronRight,
@@ -405,9 +406,10 @@ export function Studio() {
             key={previewKey}
             src={previewUrl}
             title={t('studio.previewPanel')}
-            // Opaque sandbox: the game runs isolated from the studio origin.
-            // No API secrets or backend access reach this frame (ARCHITECTURE.md §8).
-            sandbox="allow-scripts"
+            // The preview is hosted on a separate origin, so it can safely
+            // retain its origin for localStorage while remaining isolated
+            // from the Studio. Same-origin deployments stay opaque.
+            sandbox={previewSandboxFor(previewUrl, window.location.origin)}
             allow="fullscreen"
             className="h-full min-h-64 w-full rounded-lg border border-zinc-800 bg-black"
           />

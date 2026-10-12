@@ -116,7 +116,7 @@ export function buildPreviewServer(deps: PreviewServerDeps): FastifyInstance {
     // same-origin. No framing except by the studio UI.
     reply.header(
       'content-security-policy',
-      "default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; " +
+      "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; " +
         `img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; ` +
         `connect-src 'self'; worker-src 'self' blob:; frame-ancestors ${studioOrigin}`,
     );
