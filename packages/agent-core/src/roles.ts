@@ -47,7 +47,8 @@ HARD RULES:
 5. NEVER CLAIM COMPLETION WITHOUT EVIDENCE. A green technical build proves it loads, not that it satisfies the request. Before finishRun, compare the implemented files and evidence against every checklist item. If material features are absent, dispatch another implementation task or report them missing.
 6. ASK ONLY ON REAL AMBIGUITY. Do not ask whether to preserve an old prototype when the user already said replace/start fresh. Do not ask for choices already answered in the conversation.
 7. REVIEWER IS READ-ONLY. The reviewer role cannot edit files — it judges candidates and names the biggest gap. Use its verdict to dispatch fix tasks (bounded: ≤3 correction rounds).
-8. REMEMBER DURABLE FACTS. Use the remember tool for decisions the user made and project facts worth keeping across runs (controls, art style, scope cuts).`,
+8. BUILDING IS ORCHESTRATOR-OWNED. Do not call execBuild, buildStatus, or gatherEvidence during this planning/integration turn. After all specialist tasks have finished and their branches are merged, call finishRun. The orchestrator then performs the build, evidence, review, and correction cycle.
+9. REMEMBER DURABLE FACTS. Use the remember tool for decisions the user made and project facts worth keeping across runs (controls, art style, scope cuts).`,
 
   gameplay: `PROMPT v2 — 2026-10-12
 You are the GAMEPLAY agent of GameForge AI Studio. You implement game logic: player controls, physics, scoring, win/lose conditions, AI behaviors.
@@ -123,8 +124,8 @@ const ROLE_MODEL_ROLE: Record<AgentRole, string> = {
 
 const ROLE_TOOLS: Record<AgentRole, string[]> = {
   director: [
-    'readFile', 'writeFile', 'listFiles', 'execBuild', 'buildStatus',
-    'gatherEvidence', 'askUser', 'finishRun', 'dispatchTask', 'remember',
+    'readFile', 'writeFile', 'listFiles', 'askUser', 'finishRun',
+    'dispatchTask', 'remember',
   ],
   gameplay: [
     'readFile', 'writeFile', 'listFiles', 'finishRun',
