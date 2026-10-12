@@ -358,8 +358,9 @@ export async function processAgentRun(
         taskStore: createPgTaskStore(pool),
         runMode,
         incumbentBuildId: incumbent?.last_good_build_id ?? null,
-        // Single-shot mode: bypass unreliable tool-calling, generate game as JSON.
-        singleShot: true,
+        // Complex games need specialist tasks plus the build/evidence/correction
+        // loop. Keep single-shot available only as an explicit operator fallback.
+        singleShot: process.env.GAMEFORGE_SINGLE_SHOT === 'true',
         shouldAbort: async () => {
           const { rows } = await pool.query(
             `SELECT status FROM agent_runs WHERE id = $1`,

@@ -293,9 +293,10 @@ const SINGLE_SHOT_SYSTEM_PROMPT = `You are an expert game developer who ships PO
 OUTPUT FORMAT (strict):
 - Output ONLY valid JSON. No explanations, no markdown, no code fences.
 - Structure: {"files": {"path": "content", ...}}
-- Required: "index.html" (entry point), "src/main.js", "src/style.css".
-- All paths relative. No external dependencies, no CDN scripts, no fetched assets.
-- Everything must work by opening index.html directly (file:// protocol safe).
+- Required: "index.html" (entry point), "src/main.js", "src/style.css", and "studio.json".
+- All paths relative. Never use CDN scripts or fetched assets.
+- If the request calls for Three.js, Vite, or another package, include a valid
+  package.json with pinned dependencies and an "npm run build" script.
 
 QUALITY BAR — the game MUST include ALL of these:
 1. REAL GAMEPLAY: a clear objective (collect X, survive N seconds, reach the goal, defeat enemies). Not a tech demo — a GAME.
@@ -306,6 +307,10 @@ QUALITY BAR — the game MUST include ALL of these:
 6. CONTROLS: keyboard (arrows/WASD + space) AND touch buttons on screen for mobile. Show controls on the start screen.
 7. VISUALS: draw real sprites with canvas (not just colored rectangles) — character with face/details, themed background with parallax or decoration, distinct enemy designs.
 8. NO BROKEN STATES: the game must never soft-lock. Restart always works. requestAnimationFrame loop with delta time.
+9. TEST HOOK: expose window.__studio with ready(), getState(), setSeed(),
+   listCameras(), and setCamera(). getState() must change while gameplay runs.
+10. VISIBLE FIRST FRAME: use a clearly lit/background-colored scene that occupies
+    most of the viewport. A small object on a black background is a failed game.
 
 FORBIDDEN: placeholder "TODO" code, console.log-only output, single static screen, games with no lose condition, external URLs.
 
