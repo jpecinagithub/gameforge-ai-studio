@@ -153,7 +153,11 @@ export async function blindReview(opts: BlindReviewOptions): Promise<BlindReview
   while (attempts < maxAttempts) {
     attempts += 1;
     budgets.checkTime();
-    const res = await provider.chatCompletions({ model, messages });
+    const res = await provider.chatCompletions({
+      model,
+      messages,
+      maxTokens: Number(process.env['GAMEFORGE_LLM_MAX_OUTPUT_TOKENS'] ?? 6000),
+    });
     const costUsd = computeCost(model, res.usage.inputTokens, res.usage.outputTokens);
     budgets.recordUsage({
       inputTokens: res.usage.inputTokens,

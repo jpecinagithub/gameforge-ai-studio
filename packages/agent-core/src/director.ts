@@ -139,6 +139,9 @@ export async function runAgentTurn(
       messages,
       tools: toProviderToolsFor(toolDefs),
       toolChoice: 'auto',
+      // Keep each agent turn affordable on low-balance OpenRouter keys. Tool
+      // agents work iteratively, so they do not need a provider's 64k default.
+      maxTokens: Number(process.env['GAMEFORGE_LLM_MAX_OUTPUT_TOKENS'] ?? 6000),
     });
 
     // Token accounting is load-bearing (Workers AI is always metered).
