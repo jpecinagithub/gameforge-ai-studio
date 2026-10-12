@@ -25,7 +25,7 @@ export const ErrorEnvelope = {
 
 export const CreateProjectBody = {
   type: 'object',
-  required: ['name', 'template'],
+  required: ['name'],
   properties: {
     name: { type: 'string', minLength: 1, maxLength: 120 },
     description: { type: 'string', maxLength: 2000 },
@@ -52,7 +52,7 @@ export const CreateProjectBody = {
       'static-board',
       'free-camera',
     ]),
-    engine: { type: 'string', enum: ['three', 'phaser', 'pixi', 'canvas2d'], default: 'three' },
+    engine: { type: 'string', enum: ['three', 'phaser', 'pixi', 'canvas2d'] },
   },
 } as const;
 

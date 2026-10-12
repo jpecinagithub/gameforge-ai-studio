@@ -12,6 +12,7 @@ import {
 import { TEMPLATE_IDS } from './system.js';
 import { badRequest, notFound, notImplemented } from '../httpErrors.js';
 import { parseOr400, requireProject, toProjectJson, assertUuid } from './routeUtil.js';
+import { engineForTemplate, inferProjectDefaults } from '../projectDefaults.js';
 import type { ProjectRow } from './routeUtil.js';
 import {
   CreateProjectBody,
@@ -67,8 +68,12 @@ export async function projectRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (req, reply) => {
     const body = parseOr400(createProjectSchema, req.body);
-    if (!TEMPLATE_IDS.includes(body.template as (typeof TEMPLATE_IDS)[number])) {
-      throw badRequest(`Unknown template '${body.template}'`, { templates: [...TEMPLATE_IDS] });
+    const inferred = inferProjectDefaults(body.name, body.description);
+    const template = body.template ?? inferred.template;
+    const kind = body.kind ?? inferred.kind;
+    const engine = body.engine ?? (body.template ? engineForTemplate(template) : inferred.engine);
+    if (!TEMPLATE_IDS.includes(template as (typeof TEMPLATE_IDS)[number])) {
+      throw badRequest(`Unknown template '${template}'`, { templates: [...TEMPLATE_IDS] });
     }
     const id = randomUUID();
     const slug = slugify(body.name);
@@ -85,7 +90,7 @@ export async function projectRoutes(fastify: FastifyInstance): Promise<void> {
        VALUES ($1,$2,$3,$4,$5,$6,$7,'active','{}')
        RETURNING id, slug, name, description, template, kind, engine, status,
                  current_revision_id, last_good_build_id, metadata, created_at, updated_at`,
-      [id, slug, body.name, body.description ?? null, body.template, body.kind ?? null, body.engine],
+      [id, slug, body.name, body.description ?? null, template, kind, engine],
     );
     return reply.code(201).send(toProjectJson(rows[0] as never));
     },

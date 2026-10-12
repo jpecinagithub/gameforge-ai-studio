@@ -2,33 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
-export const TEMPLATES = [
-  'three-empty',
-  'three-fps',
-  'three-third-person',
-  'three-racing',
-  'three-platformer',
-  'arcade-2d',
-  'puzzle',
-  'physics-sandbox',
-] as const;
-
-export const GAME_KINDS = [
-  'first-person',
-  'third-person',
-  'top-down',
-  'side-2d',
-  'racing',
-  'flight',
-  'static-board',
-  'free-camera',
-] as const;
-
 export interface NewProjectValues {
   name: string;
   description: string;
-  template: string;
-  kind: string;
 }
 
 export function NewProjectDialog({
@@ -47,8 +23,6 @@ export function NewProjectDialog({
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [template, setTemplate] = useState<string>(TEMPLATES[0]);
-  const [kind, setKind] = useState<string>(GAME_KINDS[0]);
 
   if (!open) return null;
 
@@ -83,7 +57,7 @@ export function NewProjectDialog({
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (valid) onSubmit({ name: name.trim(), description: description.trim(), template, kind });
+            if (valid) onSubmit({ name: name.trim(), description: description.trim() });
           }}
         >
           <label className="flex flex-col gap-1.5 text-sm">
@@ -112,38 +86,6 @@ export function NewProjectDialog({
               className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600"
             />
           </label>
-
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-300">{t('projectDialog.template')}</span>
-              <select
-                value={template}
-                onChange={(e) => setTemplate(e.target.value)}
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
-              >
-                {TEMPLATES.map((tpl) => (
-                  <option key={tpl} value={tpl}>
-                    {t(`projectDialog.templates.${tpl}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium text-zinc-300">{t('projectDialog.kind')}</span>
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value)}
-                className="rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
-              >
-                {GAME_KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
 
           <div className="mt-1 flex justify-end gap-2">
             <button

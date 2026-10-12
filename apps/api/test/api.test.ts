@@ -192,6 +192,40 @@ describe('validation', () => {
     // badRequest check remains as defense-in-depth.
     expect(res.json().error.code).toBe('validation_failed');
   });
+
+  it('POST /projects infers template, kind, and engine when omitted', async () => {
+    const db = createStubDb();
+    let inserted: unknown[] = [];
+    db.on(/INSERT INTO projects/, (_text, params) => {
+      inserted = params;
+      return {
+        rows: [{
+          ...PROJECT_ROW,
+          id: params[0],
+          slug: params[1],
+          name: params[2],
+          description: params[3],
+          template: params[4],
+          kind: params[5],
+          engine: params[6],
+        }],
+        rowCount: 1,
+      };
+    });
+    const { server } = await makeServer({ db });
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/v1/projects',
+      payload: { name: 'Neon Tetris', description: 'Puzzle de bloques' },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(inserted.slice(4, 7)).toEqual(['puzzle', 'static-board', 'canvas2d']);
+    expect(res.json()).toMatchObject({
+      template: 'puzzle',
+      kind: 'static-board',
+      engine: 'canvas2d',
+    });
+  });
 });
 
 describe('runs idempotency', () => {

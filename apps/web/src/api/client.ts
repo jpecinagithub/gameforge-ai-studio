@@ -102,7 +102,7 @@ const unwrapItems = <T>(page: { items?: T[] } | T[] | null | undefined): T[] =>
 export interface CreateProjectInput {
   name: string;
   description?: string;
-  template: string;
+  template?: string;
   kind?: string;
   engine?: string;
 }

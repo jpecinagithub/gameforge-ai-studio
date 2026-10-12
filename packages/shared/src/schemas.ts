@@ -36,9 +36,9 @@ export const paginationSchema = z.object({
 export const createProjectSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
-  template: z.string().min(1).max(64),
+  template: z.string().min(1).max(64).optional(),
   kind: zodEnum(GameKind).optional(),
-  engine: z.enum(['three', 'phaser', 'pixi', 'canvas2d']).default('three'),
+  engine: z.enum(['three', 'phaser', 'pixi', 'canvas2d']).optional(),
 });
 
 export const patchProjectSchema = z.object({

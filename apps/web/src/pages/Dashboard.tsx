@@ -65,9 +65,6 @@ export function Dashboard() {
         createProject({
           name: values.name,
           description: values.description || undefined,
-          template: values.template,
-          kind: values.kind,
-          engine: 'three',
         }),
         timeout,
       ]);

@@ -64,13 +64,14 @@ describe('api client', () => {
       status: 201,
       json: async () => ({ id: 'p1', name: 'X' }),
     });
-    await createProject({ name: 'X', template: 'racing' });
+    await createProject({ name: 'X', description: 'Juego de carreras' });
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe('POST');
     expect(init.headers).toMatchObject({ 'Content-Type': 'application/json' });
     const body = JSON.parse(String(init.body));
     expect(body.name).toBe('X');
-    expect(body.template).toBe('racing');
+    expect(body.description).toBe('Juego de carreras');
+    expect(body.template).toBeUndefined();
   });
 
   it('PATCHes editable project metadata', async () => {
