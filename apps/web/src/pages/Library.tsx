@@ -52,42 +52,20 @@ export function Library() {
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100">
       <Header />
-      <nav
-        aria-label={t('nav.dashboard')}
-        className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-800 px-3 py-2 lg:hidden"
-      >
-        <Link to="/" className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
-          {t('nav.projects')}
-        </Link>
-        <Link to="/?new=1" className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
-          {t('nav.createGame')}
-        </Link>
-        <Link
-          to="/library"
-          aria-current="page"
-          className="whitespace-nowrap rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100"
-        >
-          {t('nav.library')}
-        </Link>
-        <Link to="/settings" className="whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
-          {t('nav.settings')}
-        </Link>
-      </nav>
-
       <div className="grid min-h-0 flex-1 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label={t('nav.dashboard')}
-          className="hidden min-h-0 flex-col gap-1 border-r border-zinc-800 p-3 lg:flex"
+          className="flex shrink-0 gap-1 overflow-x-auto border-b border-zinc-800 p-3 lg:min-h-0 lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
-          <Link to="/" className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+          <Link to="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
             <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
             {t('nav.dashboard')}
           </Link>
-          <Link to="/" className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+          <Link to="/" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
             <Package className="h-4 w-4" aria-hidden="true" />
             {t('nav.projects')}
           </Link>
-          <Link to="/?new=1" className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+          <Link to="/?new=1" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
             <Gamepad2 className="h-4 w-4" aria-hidden="true" />
             {t('nav.createGame')}
             <ChevronRight className="ml-auto h-4 w-4 text-zinc-600" aria-hidden="true" />
@@ -95,12 +73,12 @@ export function Library() {
           <Link
             to="/library"
             aria-current="page"
-            className="flex items-center gap-2.5 rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100"
+            className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-zinc-100"
           >
             <LibraryIcon className="h-4 w-4 text-cyan-300" aria-hidden="true" />
             {t('nav.library')}
           </Link>
-          <Link to="/settings" className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+          <Link to="/settings" className="flex shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md px-3 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
             <SettingsIcon className="h-4 w-4" aria-hidden="true" />
             {t('nav.settings')}
           </Link>
@@ -122,7 +100,7 @@ export function Library() {
         </section>
 
         {state === 'loading' && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-label={t('library.loading')}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label={t('library.loading')}>
             {Array.from({ length: 4 }).map((_, index) => <CardSkeleton key={index} />)}
           </div>
         )}
@@ -158,7 +136,7 @@ export function Library() {
         )}
 
         {state === 'ready' && games.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {games.map((game, index) => (
               <article key={game.buildId} className="group overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/70 shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:border-cyan-500/40">
                 <div className={`relative flex h-28 items-center justify-center overflow-hidden ${index % 3 === 0 ? 'bg-gradient-to-br from-cyan-950 to-blue-950' : index % 3 === 1 ? 'bg-gradient-to-br from-fuchsia-950 to-violet-950' : 'bg-gradient-to-br from-emerald-950 to-cyan-950'}`}>
