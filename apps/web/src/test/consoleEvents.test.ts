@@ -23,6 +23,10 @@ describe('formatConsoleEvent', () => {
       tag: 'tool_call',
       text: 'write_file({"path":"src/main.ts"})',
     });
+    expect(formatConsoleEvent(event('tool_call', { tool: 'listFiles', args: { dir: 'src' } }))).toEqual({
+      tag: 'tool_call',
+      text: 'list_files({"dir":"src"})',
+    });
     expect(formatConsoleEvent(event('tool_result', { ok: true, summary: 'saved' }))).toEqual({
       tag: 'tool_result',
       text: 'ok\nsaved',

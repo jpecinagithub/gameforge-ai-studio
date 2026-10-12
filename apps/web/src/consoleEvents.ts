@@ -28,6 +28,14 @@ function statusName(value: unknown): string {
   return raw;
 }
 
+function protocolToolName(value: unknown): string {
+  const raw = text(value) ?? 'tool';
+  return raw
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[\s-]+/g, '_')
+    .toLowerCase();
+}
+
 /** Convert the internal event journal into the concise agent-console protocol. */
 export function formatConsoleEvent(event: AgentEvent): ConsoleEventLine {
   const payload = event.payload ?? {};
@@ -49,7 +57,7 @@ export function formatConsoleEvent(event: AgentEvent): ConsoleEventLine {
     case 'completed':
       return { tag: 'status', text: 'completed' };
     case 'tool_call': {
-      const tool = text(payload.tool) ?? 'tool';
+      const tool = protocolToolName(payload.tool);
       return { tag: 'tool_call', text: `${tool}(${json(payload.args ?? {})})` };
     }
     case 'tool_result': {
