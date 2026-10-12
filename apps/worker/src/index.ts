@@ -102,12 +102,12 @@ async function main() {
     jsonLog('info', 'Using Alibaba Model Studio as LLM provider');
   const registry = new ModelRegistry();
   if (provider && process.env['OPENROUTER_API_KEY']) {
-    registry.register(process.env['OPENROUTER_AGENT_MODEL'] ?? 'openai/gpt-4o-mini', {
-      context_window: 128000,
+    registry.register(process.env['OPENROUTER_AGENT_MODEL'] ?? 'openai/gpt-5.4-mini', {
+      context_window: 400000,
       supports_tools: true,
       supports_vision: true,
       supports_json_mode: true,
-      max_output_tokens: 16384,
+      max_output_tokens: 32768,
     });
     jsonLog('info', 'registered configured OpenRouter agent model');
   } else if (provider && !process.env['MISTRAL_API_KEY'] && !process.env['ALIBABA_API_KEY']) {

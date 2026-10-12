@@ -274,21 +274,34 @@ export async function processAgentRun(
       to: RunStatus.RUNNING,
     });
 
-    // The user's latest message is the request; on resume, include the prior
-    // summary so the fresh director turn continues instead of restarting blind.
+    // Keep the complete recent user conversation. A short answer that resumes
+    // an askUser pause (for example "start fresh") only resolves that question;
+    // it must not replace the original game specification.
     const { rows: msgRows } = await pool.query(
-      `SELECT m.content FROM messages m
-       JOIN conversations c ON c.id = m.conversation_id
-       WHERE c.project_id = $1 AND m.role = 'user'
-       ORDER BY m.created_at DESC LIMIT 1`,
+      `SELECT recent.content FROM (
+         SELECT m.content, m.created_at
+         FROM messages m
+         JOIN conversations c ON c.id = m.conversation_id
+         WHERE c.project_id = $1 AND m.role = 'user'
+         ORDER BY m.created_at DESC LIMIT 20
+       ) AS recent
+       ORDER BY recent.created_at ASC`,
       [projectId],
     );
-    const firstMsg = msgRows[0] as { content: unknown } | undefined;
-    const latestUserMessage =
-      typeof firstMsg?.content === 'string' ? firstMsg.content : '';
+    const userMessages = msgRows
+      .map((row, index) => {
+        const content = (row as { content?: unknown }).content;
+        return typeof content === 'string' && content.trim()
+          ? `[User message ${index + 1}]\n${content.trim()}`
+          : null;
+      })
+      .filter((message): message is string => message !== null);
+    const conversationRequest = userMessages.length > 0
+      ? `User conversation (oldest to newest; earlier specifications remain binding unless explicitly changed):\n\n${userMessages.join('\n\n')}`
+      : '(no user message found; inspect the project and propose a next step)';
     const userRequest = previousSummary
-      ? `Previous progress summary:\n${previousSummary}\n\nLatest user message:\n${latestUserMessage}`
-      : latestUserMessage || '(no user message found; inspect the project and propose a next step)';
+      ? `Previous progress summary:\n${previousSummary}\n\n${conversationRequest}`
+      : conversationRequest;
 
     // Relevant memories (Phase 4): studio + project + run knowledge, ranked by
     // salience/recency/keyword overlap. Retrieval failure degrades to an empty

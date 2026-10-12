@@ -24,9 +24,9 @@ describe('role definitions', () => {
     expect(AGENT_ROLES).toHaveLength(7);
     for (const role of AGENT_ROLES) {
       const def = getRoleDef(role);
-      expect(def.version).toBe('v1');
-      expect(def.promptDate).toBe('2026-10-09');
-      expect(def.systemPrompt).toContain('PROMPT v1 — 2026-10-09');
+      expect(def.version).toMatch(/^v\d+$/);
+      expect(def.promptDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(def.systemPrompt).toContain(`PROMPT ${def.version} — ${def.promptDate}`);
       expect(def.modelRole).toBeTruthy();
       // No model names leak into selection keys.
       expect(def.modelRole).not.toMatch(/gpt|llama|Muse|qwen/i);

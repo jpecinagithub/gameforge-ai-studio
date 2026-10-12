@@ -31,6 +31,8 @@ function createMockDb(opts: {
   rowSequence?: (RunRow | null)[];
   /** When set, memories queries return these rows. */
   memoryRows?: Record<string, unknown>[];
+  /** User-message rows returned as chronological conversation context. */
+  messageRows?: Array<{ content: string }>;
 }) {
   const calls: Call[] = [];
   let currentRow: RunRow | null = opts.runRow;
@@ -58,7 +60,10 @@ function createMockDb(opts: {
         }
         return { rows: currentRow ? [currentRow] : [], rowCount: currentRow ? 1 : 0 };
       }
-      if (/FROM messages/i.test(text)) return { rows: [], rowCount: 0 };
+      if (/FROM messages/i.test(text)) {
+        const rows = opts.messageRows ?? [];
+        return { rows, rowCount: rows.length };
+      }
       if (/FROM projects/i.test(text)) return { rows: [{ last_good_build_id: null }], rowCount: 1 };
       if (/FROM memories/i.test(text) && opts.memoryRows) {
         return { rows: opts.memoryRows, rowCount: opts.memoryRows.length };
@@ -192,6 +197,26 @@ describe('processAgentRun', () => {
     expect(res.outcome).toBe('completed');
     const args = runMultiAgentJobMock.mock.calls[0]![0] as Record<string, unknown>;
     expect(args['runMode']).toBe('manual');
+  });
+
+  it('preserves the original specification when a later message answers a question', async () => {
+    const { pool, job } = createMockDb({
+      runRow: baseRow(),
+      messageRows: [
+        { content: 'Build a complete 3D arena game with waves, enemies, HUD, and touch controls.' },
+        { content: 'Start fresh and replace the old prototype.' },
+      ],
+    });
+    runMultiAgentJobMock.mockResolvedValue(directorResult);
+
+    await processAgentRun(job, baseDeps(pool));
+
+    const args = runMultiAgentJobMock.mock.calls[0]![0] as Record<string, unknown>;
+    const request = String(args['userRequest']);
+    expect(request).toContain('complete 3D arena game');
+    expect(request).toContain('Start fresh');
+    expect(request.indexOf('complete 3D arena game')).toBeLessThan(request.indexOf('Start fresh'));
+    expect(request).toContain('earlier specifications remain binding');
   });
 
   it('fails closed with a typed error when no provider credentials are configured', async () => {
