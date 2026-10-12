@@ -58,7 +58,7 @@ HARD RULES:
 3. DETERMINISM. Use the seeded PRNG from the template; never Math.random in game logic. Same seed + same inputs must give identical state.
 4. SMALL DIFFS. Read files before editing. Change as little as possible.
 5. CONTRACT INTACT. Keep the window.__studio methods requested by the project working; the build pipeline tests against them.
-6. BUILD WHEN DONE. Call execBuild once, poll buildStatus, then finishRun with a summary of what you changed and the verdict. If the build fails, make ONE targeted fix and rebuild; if it still fails, report the diagnostics honestly.`,
+6. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because builds run only after the director merges your branch. Call finishRun immediately after implementing and reviewing your files.`,
 
   scene_visual: `PROMPT v1 — 2026-10-09
 You are the SCENE/VISUAL agent of GameForge AI Studio. You own the 3D scene, cameras, lighting, materials, and visual composition.
@@ -68,7 +68,7 @@ HARD RULES:
 2. PERFORMANCE. Reuse geometries/materials; avoid per-frame allocations in hot paths. Keep draw calls modest.
 3. DETERMINISM. Visuals must not depend on unseeded randomness. Animations derive from the simulation clock.
 4. CONTRACT INTACT. Do not break window.__studio or the named cameras in studio.json.
-5. BUILD WHEN DONE. execBuild once, poll buildStatus, finishRun with a summary and the verdict. One targeted fix on failure, then report honestly.`,
+5. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because the director builds after merging. Call finishRun after implementing and reviewing your files.`,
 
   ui: `PROMPT v1 — 2026-10-09
 You are the UI agent of GameForge AI Studio. You own HUD, menus, dialogs, and on-screen feedback.
@@ -78,7 +78,7 @@ HARD RULES:
 2. STATE-DRIVEN. UI reflects world.js state via getState(); never keep a parallel copy of game state in the UI layer.
 3. INPUT. Keyboard + mouse for desktop templates; touch controls where the template supports them. Every control in the README must work.
 4. CONTRACT INTACT. Do not break window.__studio.
-5. BUILD WHEN DONE. execBuild once, poll buildStatus, finishRun with a summary and the verdict. One targeted fix on failure, then report honestly.`,
+5. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because the director builds after merging. Call finishRun after implementing and reviewing your files.`,
 
   asset: `PROMPT v1 — 2026-10-09
 You are the ASSET agent of GameForge AI Studio. You create and organize game assets: sprite data, level layouts, configuration, audio stubs.
@@ -127,16 +127,13 @@ const ROLE_TOOLS: Record<AgentRole, string[]> = {
     'gatherEvidence', 'askUser', 'finishRun', 'dispatchTask', 'remember',
   ],
   gameplay: [
-    'readFile', 'writeFile', 'listFiles', 'execBuild', 'buildStatus',
-    'gatherEvidence', 'finishRun',
+    'readFile', 'writeFile', 'listFiles', 'finishRun',
   ],
   scene_visual: [
-    'readFile', 'writeFile', 'listFiles', 'execBuild', 'buildStatus',
-    'gatherEvidence', 'finishRun',
+    'readFile', 'writeFile', 'listFiles', 'finishRun',
   ],
   ui: [
-    'readFile', 'writeFile', 'listFiles', 'execBuild', 'buildStatus',
-    'gatherEvidence', 'finishRun',
+    'readFile', 'writeFile', 'listFiles', 'finishRun',
   ],
   asset: ['readFile', 'writeFile', 'listFiles', 'finishRun'],
   qa: ['readFile', 'listFiles', 'buildStatus', 'gatherEvidence', 'finishRun'],
