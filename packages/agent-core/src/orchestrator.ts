@@ -266,12 +266,19 @@ function createDispatcher(deps: OrchestratorDeps): TaskDispatcherOps {
           maxRounds: ROLE_TURN_MAX_ROUNDS,
           shouldAbort: opts.shouldAbort,
         });
-        await taskStore.setStatus(task.id, 'completed', { summary: res.summary });
         if (useWorktree && wt) {
+          // writeFile checkpoints the pre-edit state so every mutation remains
+          // recoverable. The final edit in a role turn is therefore still dirty
+          // when finishRun returns. Commit that final state before merging or the
+          // task branch can point at the pre-edit commit and silently drop the
+          // exact fix the specialist just reported (most visible in build repair
+          // turns, which commonly make one write and finish immediately).
+          await roleCtx.git.checkpoint(`complete task ${task.id}`);
           // F8: checkpoint the main tree before merging the task branch in.
           await git.checkpoint(`before merge task ${task.id}`);
           await mergeWorktree(workDir, runId, task.id, true);
         }
+        await taskStore.setStatus(task.id, 'completed', { summary: res.summary });
         await events.toolResult(runId, 'dispatchTask', true, res.summary.slice(0, 300));
         return { taskId: task.id, status: 'completed', summary: res.summary };
       } catch (err) {

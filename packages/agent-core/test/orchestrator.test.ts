@@ -268,13 +268,13 @@ describe('runMultiAgentJob', () => {
     const { h, opts } = await makeHarness([BuildStatus.VERIFIED]);
     const provider = scriptedProvider([
       tools({ name: 'dispatchTask', args: { role: 'gameplay', objective: 'add feature file' } }),
-      finish('director done'),
-      tools({ name: 'writeFile', args: { path: 'feat.txt', content: 'hello\n' } }),
+      tools({ name: 'writeFile', args: { path: 'feat.txt', content: 'hello' } }),
       finish('gameplay done'),
+      finish('director done'),
     ]);
     await runMultiAgentJob(withProvider(opts, provider));
     // Merged into the main checkout.
-    expect(await fs.readFile(path.join(h.workDir, 'feat.txt'), 'utf8')).toBe('hello\n');
+    expect(await fs.readFile(path.join(h.workDir, 'feat.txt'), 'utf8')).toBe('hello');
     // No leftover worktree checkouts.
     const wtRoot = path.join(h.workDir, '.studio', 'worktrees');
     const entries = await fs.readdir(wtRoot).catch(() => []);
