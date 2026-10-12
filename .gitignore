@@ -27,3 +27,5 @@ Thumbs.db
 coverage/
 *.log
 research/
+.vercel
+.env*
