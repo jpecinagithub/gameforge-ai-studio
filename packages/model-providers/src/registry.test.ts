@@ -54,6 +54,22 @@ describe('ModelRegistry refresh', () => {
 });
 
 describe('ModelRegistry selectModel', () => {
+  it('selects a configured provider model with declared capabilities', () => {
+    const reg = new ModelRegistry();
+    reg.register('provider/tool-model', {
+      context_window: 128000,
+      supports_tools: true,
+      supports_vision: true,
+      supports_json_mode: true,
+      max_output_tokens: 16384,
+    });
+
+    expect(reg.isActive('provider/tool-model')).toBe(true);
+    expect(reg.selectModel({ role: 'director', requiresTools: true })).toBe(
+      'provider/tool-model',
+    );
+  });
+
   it('selects a tool-capable model for orchestration without naming models', async () => {
     const reg = new ModelRegistry();
     await reg.refresh(fakeClient(['@cf/openai/gpt-oss-120b', 'plain/model']));

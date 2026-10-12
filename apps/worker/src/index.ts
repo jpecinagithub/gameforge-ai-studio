@@ -101,7 +101,16 @@ async function main() {
   else if (process.env['ALIBABA_API_KEY'])
     jsonLog('info', 'Using Alibaba Model Studio as LLM provider');
   const registry = new ModelRegistry();
-  if (provider && !process.env['OPENROUTER_API_KEY'] && !process.env['MISTRAL_API_KEY'] && !process.env['ALIBABA_API_KEY']) {
+  if (provider && process.env['OPENROUTER_API_KEY']) {
+    registry.register(process.env['OPENROUTER_AGENT_MODEL'] ?? 'openai/gpt-4o-mini', {
+      context_window: 128000,
+      supports_tools: true,
+      supports_vision: true,
+      supports_json_mode: true,
+      max_output_tokens: 16384,
+    });
+    jsonLog('info', 'registered configured OpenRouter agent model');
+  } else if (provider && !process.env['MISTRAL_API_KEY'] && !process.env['ALIBABA_API_KEY']) {
     try {
       await registry.refresh(provider as CloudflareClient);
       jsonLog('info', 'model registry refreshed from Cloudflare Workers AI');

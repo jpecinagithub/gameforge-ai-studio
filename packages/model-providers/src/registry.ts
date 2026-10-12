@@ -138,6 +138,19 @@ export interface RefreshReport {
 export class ModelRegistry {
   private readonly entries = new Map<string, RegistryEntry>();
 
+  /** Register a configured non-Cloudflare model with operator-declared capabilities. */
+  register(modelId: string, capabilities: ModelCapabilities): void {
+    const parsed = modelCapabilitiesSchema.parse(capabilities);
+    const now = new Date().toISOString();
+    this.entries.set(modelId, {
+      modelId,
+      capabilities: parsed,
+      discoveredAt: now,
+      lastSeenAt: now,
+      active: true,
+    });
+  }
+
   /** Refresh from the account's live model catalog. Never probes (probing costs neurons). */
   async refresh(client: CloudflareClient): Promise<RefreshReport> {
     const now = new Date().toISOString();
