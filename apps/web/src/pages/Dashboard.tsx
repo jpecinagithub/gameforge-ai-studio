@@ -3,12 +3,16 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Archive, FolderPlus, Gamepad2, Pencil, Trash2 } from 'lucide-react';
 import {
+  artifactDownloadUrl,
   createProject,
   deleteProject,
+  getBuildArtifacts,
+  listBuilds,
   listProjects,
   updateProject,
 } from '../api/client';
 import type { Project } from '../types';
+import type { ScreenshotSource } from '../components/ProjectThumbnail';
 import { Header } from '../components/Header';
 import { EmptyState } from '../components/EmptyState';
 import { CardSkeleton } from '../components/Skeletons';
@@ -30,6 +34,8 @@ export function Dashboard() {
   const [editing, setEditing] = useState<Project | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  /** Real game screenshots (latest verified build) per project id. */
+  const [screenshots, setScreenshots] = useState<Record<string, ScreenshotSource>>({});
 
   const load = useCallback(async () => {
     setState('loading');
@@ -45,6 +51,41 @@ export function Dashboard() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Fetch the latest verified build's screenshot for every project, in
+  // parallel. Projects without visual evidence keep the generative art.
+  useEffect(() => {
+    if (state !== 'ready' || projects.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        projects.map(async (p) => {
+          try {
+            const builds = await listBuilds(p.id);
+            const verified = builds
+              .filter((b) => b.status === 'verified')
+              .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+            if (!verified) return null;
+            const artifacts = await getBuildArtifacts(verified.id);
+            const shot = artifacts.find((a) => a.kind === 'screenshot');
+            if (!shot) return null;
+            return [p.id, { downloadUrl: artifactDownloadUrl(shot.id), name: shot.name }] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const map: Record<string, ScreenshotSource> = {};
+      for (const e of entries) {
+        if (e) map[e[0]] = e[1];
+      }
+      setScreenshots(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, projects]);
 
   // ?new=1 auto-opens the dialog (used by the Studio sidebar "Create Game").
   useEffect(() => {
@@ -184,7 +225,12 @@ export function Dashboard() {
                 className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 transition-colors hover:border-zinc-600"
               >
                 <Link to={`/projects/${p.id}`} className="block">
-                  <ProjectThumbnail projectId={p.id} template={p.template} kind={p.kind} />
+                  <ProjectThumbnail
+                    projectId={p.id}
+                    template={p.template}
+                    kind={p.kind}
+                    screenshot={screenshots[p.id] ?? null}
+                  />
                   <div className="p-4">
                     <div className="flex items-start justify-between gap-2 pr-14">
                       <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">

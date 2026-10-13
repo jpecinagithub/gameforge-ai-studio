@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Atom,
   Box,
@@ -74,18 +75,28 @@ export function paletteForProject(projectId: string): Palette {
   return PALETTES[hashString(projectId) % PALETTES.length];
 }
 
-interface ProjectThumbnailProps {
-  projectId: string;
-  template?: string;
-  kind?: string | null;
+/** Infer a trustworthy MIME type from the artifact file name. */
+export function mimeForArtifact(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase();
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+  if (ext === 'webp') return 'image/webp';
+  if (ext === 'gif') return 'image/gif';
+  return 'image/png';
 }
 
 /**
- * Decorative generative thumbnail for a project card: deterministic gradient
- * + icon derived from the project's template/kind. Purely presentational
- * (aria-hidden) — the card already carries the accessible project name.
+ * Generative fallback: deterministic gradient + template icon.
+ * Used while the real screenshot loads, and when the project has none.
  */
-export function ProjectThumbnail({ projectId, template, kind }: ProjectThumbnailProps) {
+function GenerativeThumbnail({
+  projectId,
+  template,
+  kind,
+}: {
+  projectId: string;
+  template?: string;
+  kind?: string | null;
+}) {
   const palette = paletteForProject(projectId);
   const Icon = iconForProject(template, kind);
   const label = labelForProject(template, kind);
@@ -128,4 +139,76 @@ export function ProjectThumbnail({ projectId, template, kind }: ProjectThumbnail
       )}
     </div>
   );
+}
+
+export interface ScreenshotSource {
+  /** Absolute API download URL for the screenshot artifact. */
+  downloadUrl: string;
+  /** Artifact file name (used to infer the MIME type). */
+  name: string;
+}
+
+interface ProjectThumbnailProps {
+  projectId: string;
+  template?: string;
+  kind?: string | null;
+  /**
+   * Real screenshot from the project's latest verified build. Takes
+   * precedence over the generative art once loaded.
+   *
+   * The artifact download endpoint serves `application/octet-stream` with
+   * `nosniff`, which browsers refuse to render in an <img>. We fetch the
+   * bytes and re-wrap them in a Blob with the real image MIME type so the
+   * screenshot displays correctly.
+   */
+  screenshot?: ScreenshotSource | null;
+}
+
+/**
+ * Project card thumbnail: the real game screenshot when the project has a
+ * verified build with visual evidence, generative art otherwise (also shown
+ * while the screenshot loads). Decorative — the card already carries the
+ * accessible project name.
+ */
+export function ProjectThumbnail({ projectId, template, kind, screenshot }: ProjectThumbnailProps) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setObjectUrl(null);
+    setFailed(false);
+    if (!screenshot) return;
+    let cancelled = false;
+    let obj: string | null = null;
+    (async () => {
+      try {
+        const res = await fetch(screenshot.downloadUrl);
+        if (!res.ok) throw new Error(`screenshot fetch failed: HTTP ${res.status}`);
+        const buf = await res.arrayBuffer();
+        if (cancelled) return;
+        obj = URL.createObjectURL(new Blob([buf], { type: mimeForArtifact(screenshot.name) }));
+        setObjectUrl(obj);
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (obj) URL.revokeObjectURL(obj);
+    };
+  }, [screenshot]);
+
+  if (screenshot && !failed && objectUrl) {
+    return (
+      <div className="relative aspect-video w-full overflow-hidden bg-zinc-950">
+        <img
+          src={objectUrl}
+          alt=""
+          draggable={false}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+  return <GenerativeThumbnail projectId={projectId} template={template} kind={kind} />;
 }
