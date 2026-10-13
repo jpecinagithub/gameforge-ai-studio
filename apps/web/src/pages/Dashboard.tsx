@@ -14,6 +14,7 @@ import { EmptyState } from '../components/EmptyState';
 import { CardSkeleton } from '../components/Skeletons';
 import { NewProjectDialog, type NewProjectValues } from '../components/NewProjectDialog';
 import { EditProjectDialog, type EditProjectValues } from '../components/EditProjectDialog';
+import { ProjectThumbnail } from '../components/ProjectThumbnail';
 import { UpdatePrompt } from '../components/UpdatePrompt';
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -180,28 +181,31 @@ export function Dashboard() {
             {projects.map((p) => (
               <div
                 key={p.id}
-                className="group relative rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-600"
+                className="group relative overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60 transition-colors hover:border-zinc-600"
               >
                 <Link to={`/projects/${p.id}`} className="block">
-                  <div className="flex items-start justify-between gap-2 pr-14">
-                    <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">
-                      {p.name}
-                    </h2>
-                    {p.status === 'archived' && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
-                        <Archive className="h-3 w-3" aria-hidden="true" />
-                        {t('dashboard.archived')}
-                      </span>
+                  <ProjectThumbnail projectId={p.id} template={p.template} kind={p.kind} />
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 pr-14">
+                      <h2 className="truncate text-base font-semibold text-zinc-100 group-hover:text-cyan-300">
+                        {p.name}
+                      </h2>
+                      {p.status === 'archived' && (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">
+                          <Archive className="h-3 w-3" aria-hidden="true" />
+                          {t('dashboard.archived')}
+                        </span>
+                      )}
+                    </div>
+                    {p.description && (
+                      <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{p.description}</p>
                     )}
-                  </div>
-                  {p.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-zinc-400">{p.description}</p>
-                  )}
-                  <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
-                    <span>{t('dashboard.updated', { date: fmtDate(p.updated_at) })}</span>
-                    <span className="font-medium text-cyan-400 group-hover:text-cyan-300">
-                      {t('dashboard.open')} →
-                    </span>
+                    <div className="mt-3 flex items-center justify-between text-xs text-zinc-500">
+                      <span>{t('dashboard.updated', { date: fmtDate(p.updated_at) })}</span>
+                      <span className="font-medium text-cyan-400 group-hover:text-cyan-300">
+                        {t('dashboard.open')} →
+                      </span>
+                    </div>
                   </div>
                 </Link>
                 <div className="absolute right-2 top-2 flex gap-1 rounded-lg bg-zinc-900/90 p-0.5 shadow-sm">
