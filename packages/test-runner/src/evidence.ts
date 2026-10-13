@@ -59,6 +59,8 @@ export interface ScriptAction {
   click?: string;
   /** Optional select interaction before advancing the clock. */
   select?: { selector: string; value: string };
+  /** Optional call into the game's deterministic window.__studio contract. */
+  call?: { method: string; args: unknown[] };
 }
 
 export interface GatherEvidenceOptions {
@@ -239,6 +241,14 @@ export async function gatherEvidence(
 
   for (let a = 0; a < script.length; a++) {
     const action = script[a];
+    if (action.call) {
+      const { method, args } = action.call;
+      await tryEvaluate(
+        page,
+        `(() => { const api = window.__studio; const name = ${JSON.stringify(method)}; const fn = api && api[name]; if (typeof fn !== 'function') return false; fn.apply(api, ${JSON.stringify(args)}); return true; })()`,
+        false,
+      );
+    }
     if (action.select) {
       const { selector, value } = action.select;
       await tryEvaluate(

@@ -133,6 +133,23 @@ describe('runBuildPipeline', () => {
     ]);
   });
 
+  it('normalizes generated studio contract calls', () => {
+    expect(normalizeStudioScripts([{
+      name: 'start-and-drive',
+      actions: [
+        { call: 'start' },
+        { call: 'setTouchInput', args: [{ accelerate: true }] },
+        { call: 'step', args: [1000] },
+        { call: 'setTouchInput', args: [{}] },
+      ],
+    }])).toEqual([
+      { call: { method: 'start', args: [] }, steps: 0, dtMs: 16.666 },
+      { call: { method: 'setTouchInput', args: [{ accelerate: true }] }, steps: 0, dtMs: 16.666 },
+      { steps: 1, dtMs: 1000 },
+      { call: { method: 'setTouchInput', args: [{}] }, steps: 0, dtMs: 16.666 },
+    ]);
+  });
+
   it('runs phases in order and stops at the first failure with verdict failed', async () => {
     const projectDir = fixtureProject({ 'tsconfig.json': '{}' });
     dirs.push(projectDir);

@@ -80,6 +80,7 @@ import {
 import type { MemoryStore } from './memory.js';
 import { runAgentTurn } from './director.js';
 import type { DbLike, QueuesLike } from './jobIntegration.js';
+import { autoRepairBuildFailure } from './buildAutoRepair.js';
 
 export type RunMode = 'manual' | 'auto' | 'loop';
 
@@ -642,6 +643,9 @@ export async function runMultiAgentJob(
     if (prev.review && curr.review) {
       return prev.review.pick === 'B' && curr.review.pick === 'A';
     }
+    // A different pipeline failure means the previous fix cleared its target
+    // and exposed the next blocker. Continue within the bounded repair budget.
+    if (prev.diagnostics && curr.diagnostics && prev.diagnostics !== curr.diagnostics) return true;
     return false;
   }
 
@@ -664,6 +668,22 @@ export async function runMultiAgentJob(
       const evidenceNote = current.evidence
         ? ` Evidence: ${current.evidence.screenshots} screenshots, ${current.evidence.consoleErrors} console errors, blank=${current.evidence.blankDetected}.`
         : '';
+      // Resolve unambiguous mechanical failures before spending another model
+      // call. The change is committed to the real project tree, so exports and
+      // future deploys use the same repaired source as the verified build.
+      await git.checkpoint(`before automatic build repair round ${round}`);
+      const automaticRepair = await autoRepairBuildFailure(opts.workDir, current.diagnostics);
+      if (automaticRepair) {
+        await git.checkpoint(`auto-repair ${automaticRepair.from} as ${automaticRepair.to}`);
+        await opts.events.progress(
+          opts.runId,
+          `Reparación automática: ${automaticRepair.from} contenía JSX y se migró a ${automaticRepair.to}; referencias actualizadas.`,
+          'repair',
+        );
+        previous = current;
+        current = await verifyCycle();
+        continue;
+      }
       // Bounded fix task. The role agent fixes FILES ONLY — the orchestrator
       // owns the build, so the objective forbids execBuild (no double builds).
       await dispatcher.dispatch(

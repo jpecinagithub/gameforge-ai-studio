@@ -225,7 +225,16 @@ export function normalizeStudioScripts(raw: unknown): ScriptAction[] | undefined
       continue;
     }
     if (!item || typeof item !== 'object') continue;
-    const legacy = item as { type?: unknown; key?: unknown; ms?: unknown };
+    const legacy = item as { type?: unknown; key?: unknown; ms?: unknown; call?: unknown; args?: unknown };
+    if (typeof legacy.call === 'string' && /^[A-Za-z_$][\w$]*$/.test(legacy.call)) {
+      const args = Array.isArray(legacy.args) ? legacy.args : [];
+      if (legacy.call === 'step' && Number.isFinite(Number(args[0])) && Number(args[0]) > 0) {
+        normalized.push({ steps: 1, dtMs: Number(args[0]) });
+      } else if (!['constructor', '__proto__', 'prototype'].includes(legacy.call)) {
+        normalized.push({ call: { method: legacy.call, args }, steps: 0, dtMs: 16.666 });
+      }
+      continue;
+    }
     if (legacy.type === 'keyDown' && typeof legacy.key === 'string') {
       heldKeys.add(browserKey(legacy.key));
       continue;
