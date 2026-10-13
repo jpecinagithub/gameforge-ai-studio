@@ -226,8 +226,24 @@
       set: function (gameObj) {
         try {
           if (gameObj && typeof gameObj === 'object') {
-            ['seed', 'step', 'state', 'inspect', 'capture', 'ready', 'release'].forEach(function (k) {
-              if (typeof gameObj[k] === 'function') gameHooks[k] = gameObj[k].bind(gameObj);
+            Object.keys(gameObj).forEach(function (k) {
+              if (k === '__proto__' || k === 'prototype' || k === 'constructor') return;
+              if (typeof gameObj[k] === 'function') {
+                gameHooks[k] = gameObj[k].bind(gameObj);
+                // Keep the runner's instrumented contract for its core methods,
+                // but expose every game-specific command too. Generated games
+                // routinely add start(), pause(), getState(), setTouchInput(),
+                // etc.; hiding those methods breaks both their own UI and the
+                // scripted gameplay validator.
+                if (typeof facade[k] !== 'function') {
+                  facade[k] = function () {
+                    try { return gameHooks[k].apply(null, arguments); }
+                    catch (e) { pushError(k, e && e.message, null); }
+                  };
+                }
+              } else if (!(k in facade)) {
+                facade[k] = gameObj[k];
+              }
             });
           }
         } catch (e) { /* never throw */ }

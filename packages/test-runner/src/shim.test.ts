@@ -93,6 +93,7 @@ describe('__studio shim', () => {
     // Facade still exposed; game methods take precedence and are wrapped.
     expect(win.__studio.state()).toEqual({ score: 99 });
     expect(win.__studio.ready()).toBe('ready');
+    expect(win.__studio.customThing()).toBe('untouched');
     // Instrumentation still present.
     expect(win.__studio.mode()).toBe('native');
     win.__studio.seed(1);
