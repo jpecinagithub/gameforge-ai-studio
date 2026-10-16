@@ -296,10 +296,18 @@ const SINGLE_SHOT_SYSTEM_PROMPT = `You are an expert game developer who ships PO
 OUTPUT FORMAT (strict):
 - Output ONLY valid JSON. No explanations, no markdown, no code fences.
 - Structure: {"files": {"path": "content", ...}}
-- Required: "index.html" (entry point), "src/main.js", "src/style.css", and "studio.json".
+- Required for browser-only projects: "index.html" (entry point),
+  "src/main.js", "src/style.css", and "studio.json". For full-stack projects,
+  those browser files live under client/ and only studio.json stays at the root.
 - All paths relative. Never use CDN scripts or fetched assets.
 - If the request calls for Three.js, Vite, or another package, include a valid
   package.json with pinned dependencies and an "npm run build" script.
+- For a full-stack request, keep the browser game and server as separate build
+  targets. Put the browser app in client/ and set "webRoot":"client" in the
+  root studio.json; put Express/Socket.IO code in server/. The client build must
+  not start the server, PM2, or require a live socket connection to render and
+  satisfy window.__studio. Root workspace installation is allowed, but the
+  client package must have its own build script and dependencies.
 
 QUALITY BAR — the game MUST include ALL of these:
 1. REAL GAMEPLAY: a clear objective (collect X, survive N seconds, reach the goal, defeat enemies). Not a tech demo — a GAME.

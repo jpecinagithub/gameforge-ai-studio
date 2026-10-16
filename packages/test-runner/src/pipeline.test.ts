@@ -29,12 +29,18 @@ function whitePng(): Buffer {
   return PNG.sync.write(png);
 }
 
-function mockRunner(failCapability?: string): RunnerLike & { calls: string[] } {
+function mockRunner(failCapability?: string): RunnerLike & {
+  calls: string[];
+  execs: Array<{ capability: string; cwd: string; command: string[] }>;
+} {
   const calls: string[] = [];
+  const execs: Array<{ capability: string; cwd: string; command: string[] }> = [];
   return {
     calls,
+    execs,
     exec: async (opts) => {
       calls.push(opts.capability);
+      execs.push({ capability: opts.capability, cwd: opts.cwd, command: opts.command });
       if (failCapability === opts.capability) {
         return { exitCode: 1, stdout: '', stderr: 'SYNTHETIC TYPE ERROR: boom', timedOut: false };
       }
@@ -247,6 +253,81 @@ describe('runBuildPipeline', () => {
     expect(existsSync(join(result.buildDir, 'node_modules', 'excluded.txt'))).toBe(false);
     expect(existsSync(join(result.buildDir, 'index.html'))).toBe(true);
     expect(JSON.stringify([existsSync(join(projectDir, 'index.html'))])).toBe(before);
+  });
+
+  it('installs a full-stack workspace at the root but builds only its browser app', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'gf-fullstack-'));
+    dirs.push(projectDir);
+    mkdirSync(join(projectDir, 'client', 'src'), { recursive: true });
+    mkdirSync(join(projectDir, 'server', 'src'), { recursive: true });
+    writeFileSync(join(projectDir, 'studio.json'), JSON.stringify({
+      webRoot: 'client',
+      entry: 'index.html',
+      main: 'src/main.tsx',
+    }));
+    writeFileSync(join(projectDir, 'package.json'), JSON.stringify({
+      private: true,
+      workspaces: ['client', 'server'],
+    }));
+    writeFileSync(join(projectDir, 'package-lock.json'), '{}');
+    writeFileSync(join(projectDir, 'client', 'index.html'), INDEX_HTML);
+    writeFileSync(join(projectDir, 'client', 'src', 'main.tsx'), 'export {};');
+    writeFileSync(join(projectDir, 'client', 'tsconfig.json'), '{}');
+    writeFileSync(join(projectDir, 'client', 'vite.config.ts'), 'export default {};');
+    writeFileSync(join(projectDir, 'client', 'package.json'), JSON.stringify({
+      scripts: { build: 'vite build' },
+      devDependencies: { vite: '1.0.0' },
+    }));
+    writeFileSync(join(projectDir, 'server', 'package.json'), JSON.stringify({
+      scripts: { build: 'tsc' },
+    }));
+
+    const runner = mockRunner();
+    const { store } = mockStore();
+    const selectedPhases = ['validateStructure', 'install', 'typecheck', 'bundle']
+      .map((name) => DEFAULT_PHASES.find((phase) => phase.name === name)!);
+
+    const result = await runBuildPipeline({
+      projectDir,
+      buildId: 'build_fullstack1',
+      runner,
+      browser: mockBrowser(),
+      store,
+      phases: selectedPhases,
+      keepBuildDir: true,
+    });
+    dirs.push(result.buildDir);
+
+    const installCall = runner.execs.find((call) => call.capability === 'install')!;
+    const typecheckCall = runner.execs.find((call) => call.capability === 'typecheck')!;
+    const buildCall = runner.execs.find((call) => call.capability === 'build')!;
+    expect(installCall.cwd).toBe(result.buildDir);
+    expect(installCall.command.slice(0, 2)).toEqual(['npm', 'ci']);
+    expect(typecheckCall.cwd).toBe(join(result.buildDir, 'client'));
+    expect(buildCall.cwd).toBe(join(result.buildDir, 'client'));
+    expect(buildCall.command).toEqual(['npx', '--no-install', 'vite', 'build', '--base=./']);
+    expect(buildCall.cwd).not.toContain(`${join(result.buildDir, 'server')}`);
+  });
+
+  it('detects a conventional client directory for projects created before webRoot', async () => {
+    const projectDir = mkdtempSync(join(tmpdir(), 'gf-legacy-fullstack-'));
+    dirs.push(projectDir);
+    mkdirSync(join(projectDir, 'client'), { recursive: true });
+    writeFileSync(join(projectDir, 'studio.json'), JSON.stringify({ entry: 'index.html' }));
+    writeFileSync(join(projectDir, 'client', 'index.html'), INDEX_HTML);
+    const { store } = mockStore();
+    const validateStructure = DEFAULT_PHASES.find((phase) => phase.name === 'validateStructure')!;
+
+    const result = await runBuildPipeline({
+      projectDir,
+      buildId: 'build_legacy_fullstack1',
+      runner: mockRunner(),
+      browser: mockBrowser(),
+      store,
+      phases: [validateStructure],
+    });
+
+    expect(result.results[0]).toMatchObject({ status: 'pass', notes: 'webRoot=client, entry=index.html' });
   });
 
   it('missing entry → validateStructure fails fast', async () => {

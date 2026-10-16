@@ -6,7 +6,10 @@
   "name": "gameforge-ai-studio",
   "private": true,
   "scripts": {
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build:foundation && npm run build:core && npm run build:apps",
+    "build:foundation": "npm run build --workspace @gameforge/shared && npm run build --workspace @gameforge/plugin-sdk && npm run build --workspace @gameforge/model-providers",
+    "build:core": "npm run build --workspace @gameforge/agent-core && npm run build --workspace @gameforge/test-runner && npm run build --workspace gameforge-runner",
+    "build:apps": "npm run build --workspace gameforge-api && npm run build --workspace gameforge-worker && npm run build --workspace gameforge-web && npm run build --workspace @gameforge/plugin-asset-thumbnail && npm run build --workspace @gameforge/plugin-procedural-geometry",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"

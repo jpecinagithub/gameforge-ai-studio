@@ -34,9 +34,9 @@ export interface RoleDef {
   requiresTools: boolean;
 }
 
-/* PROMPT v2 — 2026-10-12 */
+/* PROMPT v3 — 2026-10-16 */
 const ROLE_PROMPTS: Record<AgentRole, string> = {
-  director: `PROMPT v2 — 2026-10-12
+  director: `PROMPT v3 — 2026-10-16
 You are the DIRECTOR of GameForge AI Studio, a principal software architect. You decompose the user's game request into specialized tasks and dispatch them with the dispatchTask tool (roles: gameplay, scene_visual, ui, asset, qa). Each role agent works in an isolated git worktree; its validated result is merged back.
 
 HARD RULES:
@@ -48,9 +48,10 @@ HARD RULES:
 6. ASK ONLY ON REAL AMBIGUITY. Do not ask whether to preserve an old prototype when the user already said replace/start fresh. Do not ask for choices already answered in the conversation.
 7. REVIEWER IS READ-ONLY. The reviewer role cannot edit files — it judges candidates and names the biggest gap. Use its verdict to dispatch fix tasks (bounded: ≤3 correction rounds).
 8. BUILDING IS ORCHESTRATOR-OWNED. Do not call execBuild, buildStatus, or gatherEvidence during this planning/integration turn. After all specialist tasks have finished and their branches are merged, call finishRun. The orchestrator then performs the build, evidence, review, and correction cycle.
-9. REMEMBER DURABLE FACTS. Use the remember tool for decisions the user made and project facts worth keeping across runs (controls, art style, scope cuts).`,
+9. REMEMBER DURABLE FACTS. Use the remember tool for decisions the user made and project facts worth keeping across runs (controls, art style, scope cuts).
+10. FULL-STACK BUILDS. When a request includes Express, Socket.IO, PM2, or another backend, keep it separate from the playable browser build: client/ contains the React/Vite game, server/ contains the API, and root studio.json declares "webRoot":"client" with entry/main paths relative to client/. The client must render and expose window.__studio when the backend is unavailable. Never make PM2 or a live server part of the preview build command.`,
 
-  gameplay: `PROMPT v2 — 2026-10-12
+  gameplay: `PROMPT v3 — 2026-10-16
 You are the GAMEPLAY agent of GameForge AI Studio. You implement game logic: player controls, physics, scoring, win/lose conditions, AI behaviors.
 
 HARD RULES:
@@ -60,7 +61,8 @@ HARD RULES:
 4. SMALL DIFFS. Read files before editing. Change as little as possible.
 5. CONTRACT INTACT. Provide window.__studio with ready(), seed(n), step(dtMs), state(), inspect(), and capture(); aliases such as getState()/setSeed() may be added but do not replace these names. step receives milliseconds and must advance a JSON-serializable state. Create studio.json with an explicit scripts array that starts the game and exercises movement, so automated gameplay smoke tests do not remain on the start screen.
 6. JSX EXTENSIONS. Any source file containing JSX must use .jsx (or .tsx with TypeScript), including the application entry file. Update index.html and every import when changing an extension; scan all remaining .js files for JSX before finishing.
-7. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because builds run only after the director merges your branch. Call finishRun immediately after implementing and reviewing your files.`,
+7. FULL-STACK BOUNDARY. If the project has client/ and server/, game code belongs in client/ and studio.json paths are relative to its declared webRoot. Socket features must degrade gracefully so the local game and window.__studio work without a running backend.
+8. FINISH WITHOUT BUILDING. You work in an isolated branch. Do not build or wait for build status because builds run only after the director merges your branch. Call finishRun immediately after implementing and reviewing your files.`,
 
   scene_visual: `PROMPT v1 — 2026-10-09
 You are the SCENE/VISUAL agent of GameForge AI Studio. You own the 3D scene, cameras, lighting, materials, and visual composition.
@@ -149,8 +151,8 @@ export const ROLE_DEFS: Record<AgentRole, RoleDef> = Object.fromEntries(
     role,
     {
       role,
-      version: role === 'director' || role === 'gameplay' ? 'v2' : 'v1',
-      promptDate: role === 'director' || role === 'gameplay' ? '2026-10-12' : '2026-10-09',
+      version: role === 'director' || role === 'gameplay' ? 'v3' : 'v1',
+      promptDate: role === 'director' || role === 'gameplay' ? '2026-10-16' : '2026-10-09',
       systemPrompt: ROLE_PROMPTS[role],
       allowedTools: ROLE_TOOLS[role],
       modelRole: ROLE_MODEL_ROLE[role],

@@ -107,6 +107,12 @@ export interface StudioJson {
   entry?: string;
   main?: string;
   build?: string;
+  /**
+   * Directory containing the browser application. Full-stack projects can
+   * keep an API in server/ while GameForge installs the workspace and builds
+   * only this directory for the playable preview.
+   */
+  webRoot?: string;
   bootMs?: number;
   cameras?: string[];
   seed?: number;
@@ -116,6 +122,10 @@ export interface StudioJson {
 export interface PhaseContext {
   projectDir: string;
   buildDir: string;
+  /** Absolute directory of the browser app inside buildDir. */
+  webDir: string;
+  /** Directory where dependency installation must run (workspace root or webDir). */
+  installDir: string;
   distDir: string;
   buildId: string;
   revision: string;
@@ -306,6 +316,40 @@ function readPackageJson(dir: string): Record<string, unknown> | null {
   }
 }
 
+const COMMON_WEB_ROOTS = ['client', 'frontend', 'web', 'apps/web'];
+
+function containedDirectory(root: string, relative: string): string | null {
+  if (!relative || path.isAbsolute(relative)) return null;
+  const resolvedRoot = path.resolve(root);
+  const resolved = path.resolve(resolvedRoot, relative);
+  if (resolved !== resolvedRoot && !resolved.startsWith(`${resolvedRoot}${path.sep}`)) return null;
+  return resolved;
+}
+
+/**
+ * Locate the browser application without confusing a co-located Node server
+ * for the preview target. studio.json.webRoot is authoritative; conventional
+ * full-stack layouts are detected for projects generated before the field was
+ * introduced.
+ */
+function resolveWebDir(buildDir: string, studioJson: StudioJson): string {
+  const entry = studioJson.entry ?? 'index.html';
+  if (studioJson.webRoot) {
+    const explicit = containedDirectory(buildDir, studioJson.webRoot);
+    if (explicit) return explicit;
+  }
+  if (fs.existsSync(path.join(buildDir, entry))) return buildDir;
+  for (const candidate of COMMON_WEB_ROOTS) {
+    const dir = containedDirectory(buildDir, candidate);
+    if (dir && fs.existsSync(path.join(dir, entry))) return dir;
+  }
+  return buildDir;
+}
+
+function resolveInstallDir(buildDir: string, webDir: string): string {
+  return fs.existsSync(path.join(buildDir, 'package.json')) ? buildDir : webDir;
+}
+
 /* ------------------------------------------------------------------ */
 /* Phases                                                              */
 /* ------------------------------------------------------------------ */
@@ -315,17 +359,18 @@ const validateStructure: Phase = {
   required: true,
   async run(ctx) {
     const entry = ctx.studioJson.entry ?? 'index.html';
-    if (!fs.existsSync(path.join(ctx.buildDir, entry))) {
+    if (!fs.existsSync(path.join(ctx.webDir, entry))) {
       return phaseResult('fail', `entry document missing: ${entry}`, {
         error: `required file not found: ${entry}`,
       });
     }
-    if (ctx.studioJson.main && !fs.existsSync(path.join(ctx.buildDir, ctx.studioJson.main))) {
+    if (ctx.studioJson.main && !fs.existsSync(path.join(ctx.webDir, ctx.studioJson.main))) {
       return phaseResult('fail', `declared main missing: ${ctx.studioJson.main}`, {
         error: `studio.json main not found: ${ctx.studioJson.main}`,
       });
     }
-    return phaseResult('pass', `entry=${entry}`);
+    const webRoot = path.relative(ctx.buildDir, ctx.webDir).split(path.sep).join('/') || '.';
+    return phaseResult('pass', `webRoot=${webRoot}, entry=${entry}`);
   },
 };
 
@@ -358,12 +403,12 @@ const install: Phase = {
   name: 'install',
   required: false,
   async run(ctx) {
-    const pkg = readPackageJson(ctx.buildDir);
+    const pkg = readPackageJson(ctx.installDir);
     if (!pkg) return phaseResult('skip', 'no package.json — nothing to install');
-    const useCi = fs.existsSync(path.join(ctx.buildDir, 'package-lock.json'));
+    const useCi = fs.existsSync(path.join(ctx.installDir, 'package-lock.json'));
     const command = useCi ? ['npm', 'ci', '--no-audit', '--no-fund'] : ['npm', 'install', '--no-audit', '--no-fund'];
     const r = await ctx.runner.exec({
-      capability: 'install', cwd: ctx.buildDir, command,
+      capability: 'install', cwd: ctx.installDir, command,
       timeoutMs: 10 * 60 * 1000, network: 'registry-only',
     });
     if (r.timedOut || r.exitCode !== 0) {
@@ -379,11 +424,11 @@ const typecheck: Phase = {
   name: 'typecheck',
   required: false,
   async run(ctx) {
-    if (!fs.existsSync(path.join(ctx.buildDir, 'tsconfig.json'))) {
+    if (!fs.existsSync(path.join(ctx.webDir, 'tsconfig.json'))) {
       return phaseResult('skip', 'no tsconfig.json — nothing to typecheck');
     }
     const r = await ctx.runner.exec({
-      capability: 'typecheck', cwd: ctx.buildDir,
+      capability: 'typecheck', cwd: ctx.webDir,
       command: ['npx', '--no-install', 'tsc', '--noEmit'],
       timeoutMs: 5 * 60 * 1000, network: 'none',
     });
@@ -400,11 +445,11 @@ const unitTests: Phase = {
   name: 'unitTests',
   required: false,
   async run(ctx) {
-    const pkg = readPackageJson(ctx.buildDir);
+    const pkg = readPackageJson(ctx.webDir);
     const scripts = (pkg?.['scripts'] as Record<string, string> | undefined) ?? {};
     if (!scripts['test']) return phaseResult('skip', 'no test script — nothing to run');
     const r = await ctx.runner.exec({
-      capability: 'test', cwd: ctx.buildDir, command: ['npm', 'test'],
+      capability: 'test', cwd: ctx.webDir, command: ['npm', 'test'],
       timeoutMs: 10 * 60 * 1000, network: 'none',
     });
     if (r.timedOut || r.exitCode !== 0) {
@@ -421,9 +466,9 @@ const bundle: Phase = {
   required: false,
   async run(ctx) {
     const hasVite = ['vite.config.js', 'vite.config.ts', 'vite.config.mjs'].some((f) =>
-      fs.existsSync(path.join(ctx.buildDir, f)),
+      fs.existsSync(path.join(ctx.webDir, f)),
     );
-    const pkg = readPackageJson(ctx.buildDir);
+    const pkg = readPackageJson(ctx.webDir);
     const scripts = (pkg?.['scripts'] as Record<string, string> | undefined) ?? {};
     const dependencies = {
       ...((pkg?.['dependencies'] as Record<string, string> | undefined) ?? {}),
@@ -436,7 +481,7 @@ const bundle: Phase = {
         ? ['npx', '--no-install', 'vite', 'build', '--base=./']
         : ['npm', 'run', 'build'];
       const r = await ctx.runner.exec({
-        capability: 'build', cwd: ctx.buildDir, command,
+        capability: 'build', cwd: ctx.webDir, command,
         timeoutMs: 10 * 60 * 1000, network: 'none',
       });
       if (r.timedOut || r.exitCode !== 0) {
@@ -444,11 +489,11 @@ const bundle: Phase = {
           error: (r.stderr || r.stdout).slice(0, 4000),
         });
       }
-      ctx.distDir = path.join(ctx.buildDir, 'dist');
+      ctx.distDir = path.join(ctx.webDir, 'dist');
       return phaseResult('pass', 'vite build → dist/');
     }
     // No-build template (adapted-from-Genex): serve the static tree as-is.
-    ctx.distDir = ctx.buildDir;
+    ctx.distDir = ctx.webDir;
     return phaseResult('skip', 'no bundler configured — serving static tree');
   },
 };
@@ -895,10 +940,14 @@ export async function runBuildPipeline(
   copyTree(path.resolve(projectDir), buildDir);
 
   const studioJson = readStudioJson(buildDir);
+  const webDir = resolveWebDir(buildDir, studioJson);
+  const installDir = resolveInstallDir(buildDir, webDir);
   const ctx: PhaseContext & { startedAt: number } = {
     projectDir: path.resolve(projectDir),
     buildDir,
-    distDir: buildDir,
+    webDir,
+    installDir,
+    distDir: webDir,
     buildId,
     revision: options.revision ?? 'unknown',
     seed: options.seed ?? studioJson.seed ?? seed,

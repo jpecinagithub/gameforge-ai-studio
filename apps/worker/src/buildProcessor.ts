@@ -8,6 +8,7 @@ import {
 import {
   runBuildPipeline,
   type AcceptanceCriterion,
+  type BuildPipelineResult,
   type RunnerLike,
 } from '@gameforge/test-runner';
 import { IMAGE_ALLOWLIST, type Capability } from 'gameforge-runner';
@@ -115,6 +116,34 @@ function gitHead(cwd: string): Promise<string | null> {
   });
 }
 
+function diagnosticExcerpt(value: string | undefined): string | null {
+  if (!value) return null;
+  const compact = value.replace(/\r/g, '').split('\n').map((line) => line.trim()).filter(Boolean).join(' ');
+  return compact ? compact.slice(0, 600) : null;
+}
+
+/** Stable verdict shape consumed by both the Studio cards and build detail UI. */
+export function buildVerdictPayload(result: BuildPipelineResult): Record<string, unknown> {
+  const failed = result.results.find((phase) => phase.status === 'fail');
+  const detail = diagnosticExcerpt(failed?.error ?? failed?.notes);
+  const summary = failed
+    ? `Build failed in ${failed.name}${detail ? `: ${detail}` : ''}`
+    : result.verdict === BuildStatus.VERIFIED
+      ? 'Build verified successfully.'
+      : 'Build completed with partial verification.';
+  return {
+    summary,
+    failed_phase: failed?.name ?? null,
+    phases: result.results.map((phase) => ({
+      name: phase.name,
+      status: phase.status,
+      error: phase.error ?? null,
+      notes: phase.notes,
+      data: phase.data,
+    })),
+  };
+}
+
 export async function processBuild(
   job: JobLike,
   deps: BuildProcessorDeps,
@@ -205,22 +234,11 @@ export async function processBuild(
     }
 
     const verdict = result.verdict;
+    const verdictPayload = redactor.redactDeep(buildVerdictPayload(result));
     await pool.query(
       `UPDATE build_jobs SET status = $2, ended_at = now(),
          verdict = $3 WHERE id = $1`,
-      [
-        buildId,
-        verdict,
-        JSON.stringify({
-          phases: result.results.map((r) => ({
-            name: r.name,
-            status: r.status,
-            error: r.error ?? null,
-            notes: r.notes,
-            data: r.data,
-          })),
-        }),
-      ],
+      [buildId, verdict, JSON.stringify(verdictPayload)],
     );
 
     if (verdict === BuildStatus.VERIFIED || verdict === BuildStatus.PARTIAL) {
@@ -257,10 +275,15 @@ export async function processBuild(
     return { outcome: verdict === BuildStatus.FAILED ? 'failed' : 'completed' };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    const failurePayload = redactor.redactDeep({
+      summary: `Build processor failed: ${diagnosticExcerpt(message) ?? 'unknown error'}`,
+      failed_phase: 'processor',
+      error: message,
+    });
     await pool.query(
       `UPDATE build_jobs SET status = 'failed', ended_at = now(),
          verdict = $2 WHERE id = $1 AND status NOT IN ('verified','partial','failed','canceled')`,
-      [buildId, JSON.stringify({ error: message })],
+      [buildId, JSON.stringify(failurePayload)],
     );
     await noteRun(AgentEventKind.ERROR, { buildId, code: 'build_failed', detail: message });
     logF('build processor threw', { error: message });
