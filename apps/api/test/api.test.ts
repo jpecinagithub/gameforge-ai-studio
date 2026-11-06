@@ -125,6 +125,8 @@ afterEach(async () => {
   delete process.env.CLOUDFLARE_API_TOKEN;
   delete process.env.CLOUDFLARE_ACCOUNT_ID;
   delete process.env.OPENROUTER_AGENT_MODEL;
+  delete process.env.TOP_TOOLS_API_KEY;
+  delete process.env.TOP_TOOLS_AGENT_MODEL;
 });
 
 /* ------------------------------------------------------------------ */
@@ -157,6 +159,31 @@ describe('system', () => {
     expect(res.json()).toMatchObject({
       provider: 'openrouter',
       activeModel: 'openai/gpt-5.6-luna',
+      serverManaged: true,
+    });
+  });
+
+  it('reports Top Tools AI (Kimi) when its key is configured', async () => {
+    process.env.TOP_TOOLS_API_KEY = 'test-key';
+    process.env.TOP_TOOLS_AGENT_MODEL = 'Kimi-K2.6';
+    const { server } = await makeServer();
+    const res = await server.inject({ method: 'GET', url: '/api/v1/models/capabilities' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      provider: 'top-tools-ai',
+      activeModel: 'Kimi-K2.6',
+      serverManaged: true,
+    });
+  });
+
+  it('reports the default Kimi model when only the Top Tools key is set', async () => {
+    process.env.TOP_TOOLS_API_KEY = 'test-key';
+    const { server } = await makeServer();
+    const res = await server.inject({ method: 'GET', url: '/api/v1/models/capabilities' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      provider: 'top-tools-ai',
+      activeModel: 'Kimi-K2.7-Code',
       serverManaged: true,
     });
   });

@@ -23,6 +23,8 @@ import {
   type OpenRouterClient,
   ModelRegistry,
   type ChatMessage,
+  topToolsAgentModel,
+  topToolsApiKey,
 } from '@gameforge/model-providers';
 import {
   AgentCoreError,
@@ -356,11 +358,15 @@ function extractJson(text: string): Record<string, unknown> {
 export async function runSingleShotDirector(
   opts: SingleShotOptions,
 ): Promise<SingleShotResult> {
-  // Model selection priority: OpenRouter > Mistral > Alibaba > Cloudflare registry.
+  // Model selection priority: Top Tools AI (Kimi) > OpenRouter > Mistral > Alibaba > Cloudflare registry.
+  // Top Tools AI: Kimi on the welcome tokens, no payment.
   // OpenRouter: deepseek-chat is $0.14/1M tokens, excellent at code/JSON.
   // Mistral: $10/month free. Alibaba: 1M free tokens/model (Singapore).
   let model: string;
-  if (process.env['OPENROUTER_API_KEY']) {
+  if (topToolsApiKey()) {
+    // Kimi via Top Tools AI: best quality/price for single-shot JSON.
+    model = topToolsAgentModel();
+  } else if (process.env['OPENROUTER_API_KEY']) {
     // DeepSeek V3 via OpenRouter: best quality/price for single-shot JSON.
     model = 'deepseek/deepseek-chat';
   } else if (process.env['MISTRAL_API_KEY']) {

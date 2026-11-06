@@ -10,6 +10,7 @@ import {
 } from '@gameforge/shared';
 import { notFound } from '../httpErrors.js';
 import { parseOr400, requireProject } from './routeUtil.js';
+import { TOP_TOOLS_BASE_URL, topToolsAgentModel, topToolsApiKey } from '@gameforge/model-providers';
 import '../types.js';
 
 /** Conversations + messages (master prompt §23). */
@@ -233,10 +234,14 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       throw new Error('question is required');
     }
 
-    const apiKey = process.env['OPENROUTER_API_KEY'];
+    const topToolsKey = topToolsApiKey();
+    const apiKey = topToolsKey ?? process.env['OPENROUTER_API_KEY'];
     if (!apiKey) {
-      throw new Error('OPENROUTER_API_KEY not configured');
+      throw new Error('No LLM provider configured (TOP_TOOLS_API_KEY or OPENROUTER_API_KEY)');
     }
+    // Top Tools AI is OpenAI-compatible: same request shape, other base URL.
+    const baseUrl = topToolsKey ? TOP_TOOLS_BASE_URL : 'https://openrouter.ai/api/v1';
+    const model = topToolsKey ? topToolsAgentModel() : 'deepseek/deepseek-chat';
 
     // Gather context: project, recent runs, recent builds.
     const [projRes, runsRes, buildsRes] = await Promise.all([
@@ -262,7 +267,7 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
 
     const systemPrompt = `You are the GameForge AI Studio assistant. Answer the user's question about their game project concisely and helpfully. Use the project context below. Respond in the user's language (Spanish if they write in Spanish, English if in English). Keep answers short — 2-3 sentences unless they ask for detail.\n\n${context}`;
 
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -271,7 +276,7 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
         'X-Title': 'GameForge AI Studio',
       },
       body: JSON.stringify({
-        model: 'deepseek/deepseek-chat',
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question },
@@ -280,7 +285,7 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
       }),
     });
     if (!res.ok) {
-      throw new Error(`OpenRouter error: ${res.status}`);
+      throw new Error(`LLM provider error: ${res.status}`);
     }
     const data = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
@@ -309,7 +314,7 @@ export async function conversationRoutes(fastify: FastifyInstance): Promise<void
     const { rows: aRows } = await db.query<{ id: string; created_at: string }>(
       `INSERT INTO messages (conversation_id, role, content, model) VALUES ($1, 'assistant', $2, $3)
        RETURNING id, created_at`,
-      [conversationId, answer, 'deepseek/deepseek-chat'],
+      [conversationId, answer, model],
     );
     return {
       question: { id: qRows[0].id, role: 'user', content: question, createdAt: qRows[0].created_at },

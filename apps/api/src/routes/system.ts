@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { topToolsApiKey } from '@gameforge/model-providers';
 import '../types.js';
 
 /** The 8 functional starter templates (master prompt §5). */
@@ -39,7 +40,7 @@ export async function systemRoutes(fastify: FastifyInstance): Promise<void> {
       runner = 'unavailable';
     }
     return {
-      engines: ['openrouter'],
+      engines: topToolsApiKey() ? ['top-tools-ai', 'openrouter'] : ['openrouter'],
       templates: [...TEMPLATE_IDS],
       runner,
       // Blender adapter exists only after the Oracle instance proves capable (Phase 6).

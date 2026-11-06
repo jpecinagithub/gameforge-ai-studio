@@ -7,7 +7,7 @@ import {
   createSecretRedactor,
   newBuildId,
 } from '@gameforge/shared';
-import { CloudflareClient, AlibabaClient, MistralClient, OpenRouterClient, ModelRegistry } from '@gameforge/model-providers';
+import { CloudflareClient, AlibabaClient, MistralClient, OpenRouterClient, ModelRegistry, TOP_TOOLS_BASE_URL, TOP_TOOLS_KIMI_CONTEXT_WINDOW, topToolsAgentModel, topToolsApiKey } from '@gameforge/model-providers';
 import type { EvidenceProvider } from '@gameforge/agent-core';
 import { createQueues, QUEUE_NAMES } from './queues.js';
 import { processAgentRun, type DirectorQueues } from './runProcessor.js';
@@ -52,6 +52,8 @@ async function main() {
   const redactor = createSecretRedactor();
   if (process.env['CLOUDFLARE_API_TOKEN'])
     redactor.addSecret('cloudflare-token', process.env['CLOUDFLARE_API_TOKEN']);
+  if (topToolsApiKey())
+    redactor.addSecret('top-tools-api-key', topToolsApiKey() as string);
   if (process.env['DATABASE_URL']) redactor.addSecret('db-url', process.env['DATABASE_URL']);
 
   const pgPool = new pg.Pool({ connectionString: databaseUrl, max: 10 });
@@ -71,29 +73,36 @@ async function main() {
     end: () => pgPool.end(),
   };
 
-  // LLM wiring. Priority: OPENROUTER_API_KEY > MISTRAL_API_KEY > ALIBABA_API_KEY > Cloudflare.
-  // OpenRouter: pay-as-you-go, all top models, OpenAI-compatible.
+  // LLM wiring. Priority: TOP_TOOLS_API_KEY > OPENROUTER_API_KEY > MISTRAL_API_KEY > ALIBABA_API_KEY > Cloudflare.
+  // Top Tools AI: OpenAI-compatible gateway, Kimi models on the welcome
+  // tokens (no payment). OpenRouter: pay-as-you-go, all top models,
+  // OpenAI-compatible.
   // Mistral: $10/month free, no card. Alibaba: Jon has 1M free tokens/model
   // (Singapore region → dashscope-intl endpoint). Cloudflare: 10k Neurons/day.
   // No key → the director fails closed with a typed error (processAgentRun),
   // never a fake run.
   // Note: all clients are structurally compatible with CloudflareClient for
   // the chatCompletions interface used by the agent.
+  const topToolsKey = topToolsApiKey();
   const provider: CloudflareClient | AlibabaClient | MistralClient | OpenRouterClient | null =
-    process.env['OPENROUTER_API_KEY']
-      ? (new OpenRouterClient({ apiKey: process.env['OPENROUTER_API_KEY'] }) as unknown as CloudflareClient)
-      : process.env['MISTRAL_API_KEY']
-        ? (new MistralClient({ apiKey: process.env['MISTRAL_API_KEY'] }) as unknown as CloudflareClient)
-        : process.env['ALIBABA_API_KEY']
-          ? (new AlibabaClient({ apiKey: process.env['ALIBABA_API_KEY'] }) as unknown as CloudflareClient)
-          : process.env['CLOUDFLARE_API_TOKEN'] && process.env['CLOUDFLARE_ACCOUNT_ID']
-            ? new CloudflareClient({
-                apiToken: process.env['CLOUDFLARE_API_TOKEN'],
-                accountId: process.env['CLOUDFLARE_ACCOUNT_ID'],
-              })
-            : null;
+    topToolsKey
+      ? (new OpenRouterClient({ apiKey: topToolsKey, baseUrl: TOP_TOOLS_BASE_URL }) as unknown as CloudflareClient)
+      : process.env['OPENROUTER_API_KEY']
+        ? (new OpenRouterClient({ apiKey: process.env['OPENROUTER_API_KEY'] }) as unknown as CloudflareClient)
+        : process.env['MISTRAL_API_KEY']
+          ? (new MistralClient({ apiKey: process.env['MISTRAL_API_KEY'] }) as unknown as CloudflareClient)
+          : process.env['ALIBABA_API_KEY']
+            ? (new AlibabaClient({ apiKey: process.env['ALIBABA_API_KEY'] }) as unknown as CloudflareClient)
+            : process.env['CLOUDFLARE_API_TOKEN'] && process.env['CLOUDFLARE_ACCOUNT_ID']
+              ? new CloudflareClient({
+                  apiToken: process.env['CLOUDFLARE_API_TOKEN'],
+                  accountId: process.env['CLOUDFLARE_ACCOUNT_ID'],
+                })
+              : null;
   if (!provider)
     jsonLog('warn', 'No LLM provider configured; agent runs will fail closed');
+  else if (topToolsKey)
+    jsonLog('info', 'Using Top Tools AI (Kimi) as LLM provider');
   else if (process.env['OPENROUTER_API_KEY'])
     jsonLog('info', 'Using OpenRouter as LLM provider');
   else if (process.env['MISTRAL_API_KEY'])
@@ -101,7 +110,18 @@ async function main() {
   else if (process.env['ALIBABA_API_KEY'])
     jsonLog('info', 'Using Alibaba Model Studio as LLM provider');
   const registry = new ModelRegistry();
-  if (provider && process.env['OPENROUTER_API_KEY']) {
+  if (provider && topToolsKey) {
+    registry.register(topToolsAgentModel(), {
+      context_window: TOP_TOOLS_KIMI_CONTEXT_WINDOW,
+      supports_tools: true,
+      // Vision is unverified for the Kimi models on this gateway; the review
+      // pipeline skips vision review without a vision-capable model.
+      supports_vision: false,
+      supports_json_mode: true,
+      max_output_tokens: 32768,
+    });
+    jsonLog('info', 'registered configured Top Tools AI agent model');
+  } else if (provider && process.env['OPENROUTER_API_KEY']) {
     registry.register(process.env['OPENROUTER_AGENT_MODEL'] ?? 'openai/gpt-5.6-luna', {
       context_window: 400000,
       supports_tools: true,

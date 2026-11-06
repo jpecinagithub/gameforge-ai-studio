@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { AgentRole } from '@gameforge/shared';
+import { topToolsAgentModel, topToolsApiKey } from '@gameforge/model-providers';
 import { badRequest, dependencyUnavailable } from '../httpErrors.js';
 import { safeMessage } from '../redact.js';
 import '../types.js';
@@ -25,11 +26,14 @@ export async function modelRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   fastify.get('/models/capabilities', async () => {
-    const activeModel = process.env.OPENROUTER_AGENT_MODEL?.trim() || null;
+    const topToolsKey = topToolsApiKey();
+    const activeModel = topToolsKey
+      ? topToolsAgentModel()
+      : process.env.OPENROUTER_AGENT_MODEL?.trim() || null;
     return {
       capabilityKeys: ['context_window', 'supports_tools', 'supports_vision', 'supports_json_mode'],
       agentRoles: Object.values(AgentRole),
-      provider: activeModel ? 'openrouter' : 'unconfigured',
+      provider: topToolsKey ? 'top-tools-ai' : activeModel ? 'openrouter' : 'unconfigured',
       activeModel,
       serverManaged: true,
     };
